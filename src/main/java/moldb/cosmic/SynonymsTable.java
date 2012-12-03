@@ -17,8 +17,8 @@ public class SynonymsTable {
 
 	public static void setup(Connection conn) throws SQLException {
 		Statement s = conn.createStatement();
-		s.executeUpdate("create table if not exists synonym (" +
-				"symbol collate nocase, synonym collate nocase)");
+		s.executeUpdate("create table if not exists synonym ("
+				+ "symbol collate nocase, synonym collate nocase)");
 	}
 
 	public static void teardown(Connection conn) throws SQLException {
@@ -26,12 +26,14 @@ public class SynonymsTable {
 		s.executeUpdate("drop table if exists synonym");
 	}
 
-	public static void read(Connection conn, String fileName) throws IOException, SQLException {
+	public static void read(Connection conn, String fileName)
+			throws IOException, SQLException {
 		BufferedReader reader = new BufferedReader(new FileReader(fileName));
 		reader.readLine(); // header
-		PreparedStatement ps = conn.prepareStatement(
-				"insert into synonym values(?,?)");
-		for (String line = reader.readLine(); line != null; line = reader.readLine()) {
+		PreparedStatement ps = conn
+				.prepareStatement("insert into synonym values(?,?)");
+		for (String line = reader.readLine(); line != null; line = reader
+				.readLine()) {
 			String[] fields = line.split("\t");
 			ps.setString(1, fields[1]); // Approved Symbol
 			if (fields[4].length() > 0)

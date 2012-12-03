@@ -8,41 +8,44 @@ import java.sql.Statement;
 
 public class Database {
 	static {
-			try {
-				Class.forName("org.sqlite.JDBC");
-			} catch (ClassNotFoundException e) {
-				e.printStackTrace();
-			}
+		try {
+			Class.forName("org.sqlite.JDBC");
+		} catch (ClassNotFoundException e) {
+			e.printStackTrace();
+		}
 	}
 
 	private Connection conn;
 
 	public Database(String fileName) throws SQLException {
-			conn = DriverManager.getConnection("jdbc:sqlite:" + fileName);
-			Statement s = conn.createStatement();
-			s.executeUpdate("pragma synchronous = off");
-			s.executeUpdate("pragma count_changes = off");
-			s.executeUpdate("pragma journal_mode = memory");
-			s.executeUpdate("pragma temp_store = memory");
-			conn.setAutoCommit(false);
+		conn = DriverManager.getConnection("jdbc:sqlite:" + fileName);
+		Statement s = conn.createStatement();
+		s.executeUpdate("pragma synchronous = off");
+		s.executeUpdate("pragma count_changes = off");
+		s.executeUpdate("pragma journal_mode = memory");
+		s.executeUpdate("pragma temp_store = memory");
+		conn.setAutoCommit(false);
 	}
-	
+
 	public void init() throws IOException, SQLException {
 		reset();
 		System.out.println("coding");
 		long start = System.currentTimeMillis();
 		MutationTable.read(conn, "WGS_CodingMuts_v60_190712.vcf", true);
-		System.out.println("took " + (System.currentTimeMillis() - start) + "ms");
+		System.out.println("took " + (System.currentTimeMillis() - start)
+				+ "ms");
 		System.out.println("noncoding");
 		start = System.currentTimeMillis();
 		MutationTable.read(conn, "WGS_NonCodingVariants_v60_190712.vcf", false);
-		System.out.println("took " + (System.currentTimeMillis() - start) + "ms");
+		System.out.println("took " + (System.currentTimeMillis() - start)
+				+ "ms");
 
 		System.out.println("synonyms");
 		start = System.currentTimeMillis();
 		SynonymsTable.read(conn, "hgnc-proteincoding.csv");
-		System.out.println("took " + (System.currentTimeMillis() - start) + "ms");
-		
+		System.out.println("took " + (System.currentTimeMillis() - start)
+				+ "ms");
+
 		System.out.println("done");
 	}
 
