@@ -10,16 +10,16 @@ public class Database {
 	static {
 		try {
 			Class.forName("org.sqlite.JDBC");
-		} catch (ClassNotFoundException e) {
+		} catch (final ClassNotFoundException e) {
 			e.printStackTrace();
 		}
 	}
 
-	private Connection conn;
+	private final Connection conn;
 
-	public Database(String fileName) throws SQLException {
+	public Database(final String fileName) throws SQLException {
 		conn = DriverManager.getConnection("jdbc:sqlite:" + fileName);
-		Statement s = conn.createStatement();
+		final Statement s = conn.createStatement();
 		s.executeUpdate("pragma synchronous = off");
 		s.executeUpdate("pragma count_changes = off");
 		s.executeUpdate("pragma journal_mode = memory");
@@ -29,23 +29,8 @@ public class Database {
 
 	public void init() throws IOException, SQLException {
 		reset();
-		System.out.println("coding");
-		long start = System.currentTimeMillis();
-		MutationTable.read(conn, "WGS_CodingMuts_v60_190712.vcf", true);
-		System.out.println("took " + (System.currentTimeMillis() - start)
-				+ "ms");
-		System.out.println("noncoding");
-		start = System.currentTimeMillis();
-		MutationTable.read(conn, "WGS_NonCodingVariants_v60_190712.vcf", false);
-		System.out.println("took " + (System.currentTimeMillis() - start)
-				+ "ms");
-
-		System.out.println("synonyms");
-		start = System.currentTimeMillis();
-		SynonymsTable.read(conn, "hgnc-proteincoding.csv");
-		System.out.println("took " + (System.currentTimeMillis() - start)
-				+ "ms");
-
+		MutationTable.init(conn);
+		SynonymsTable.init(conn);
 		System.out.println("done");
 	}
 
@@ -56,8 +41,8 @@ public class Database {
 		SynonymsTable.setup(conn);
 	}
 
-	public static void main(String[] args) throws Exception {
-		Database db = new Database("sample.db");
+	public static void main(final String[] args) throws Exception {
+		final Database db = new Database("sample.db");
 		db.init();
 	}
 

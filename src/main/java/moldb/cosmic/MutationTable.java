@@ -1,12 +1,20 @@
 package moldb.cosmic;
 
 import java.io.BufferedReader;
-import java.io.FileReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.zip.GZIPInputStream;
+
+import org.apache.commons.net.ftp.FTP;
+import org.apache.commons.net.ftp.FTPClient;
+import org.apache.commons.net.ftp.FTPFile;
 
 public class MutationTable {
 
@@ -25,10 +33,11 @@ public class MutationTable {
 		s.executeUpdate("drop table if exists mutation");
 	}
 
-	public static void read(final Connection conn, final String fileName,
+	static void read(final Connection conn, final String fileName,
 			final boolean isCoding) throws IOException, SQLException {
-		final BufferedReader reader = new BufferedReader(new FileReader(
-				fileName));
+		System.out.println("reading " + fileName);
+		final BufferedReader reader = new BufferedReader(new InputStreamReader(
+				new GZIPInputStream(new FileInputStream(fileName))));
 		final PreparedStatement ps = conn
 				.prepareStatement("insert into mutation values(?,?,?,?,?,?,?,?,?)");
 		for (String line = reader.readLine(); line != null; line = reader
@@ -67,5 +76,45 @@ public class MutationTable {
 		}
 		reader.close();
 		conn.commit();
+	}
+
+	static String coding_name = "cosmic_coding.vcf.gz";
+	static String noncoding_name = "cosmic_noncoding.vcf.gz";
+
+	static void download() throws IOException {
+		final FTPClient ftp = new FTPClient();
+		ftp.connect("ftp.sanger.ac.uk");
+		ftp.login("anonymous", "anonymous@example.org");
+		ftp.changeWorkingDirectory("pub/CGP/cosmic/data_export/");
+		for (final FTPFile ftpfile : ftp.listFiles()) {
+			final String ftpname = ftpfile.getName();
+			String outname = null;
+			if (ftpname.startsWith("CosmicCodingMuts"))
+				outname = coding_name;
+			else if (ftpname.startsWith("CosmicNonCodingVariants"))
+				outname = noncoding_name;
+			if (outname != null) {
+				final long ftpdate = ftpfile.getTimestamp().getTime().getTime();
+				final File outfile = new File(outname);
+				if (!outfile.exists() || outfile.lastModified() < ftpdate) {
+					final FileOutputStream out = new FileOutputStream(outfile);
+					System.out.println("downloading " + ftpname + " to "
+							+ outname);
+					ftp.setFileType(FTP.BINARY_FILE_TYPE);
+					ftp.retrieveFile(ftpname, out);
+					out.close();
+					System.out.println("len " + ftpfile.getSize() + "/"
+							+ outfile.length());
+					outfile.setLastModified(ftpdate);
+				}
+			}
+		}
+	}
+
+	public static void init(final Connection conn) throws IOException,
+			SQLException {
+		download();
+		read(conn, coding_name, true);
+		read(conn, noncoding_name, false);
 	}
 }
