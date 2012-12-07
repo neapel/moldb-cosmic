@@ -10,20 +10,22 @@ import java.util.regex.Pattern;
 
 public class Uniprot {
 
-	public static List<String> readAccList(String fileName) throws IOException {
-		List<String> accs = new ArrayList<String>();
-		Pattern pat = Pattern.compile("^UNIPROT:(\\S+)$");
-		BufferedReader r = new BufferedReader(new FileReader(fileName));
+	public static List<String> readAccList(final String fileName)
+			throws IOException {
+		final List<String> accs = new ArrayList<String>();
+		final Pattern pat = Pattern.compile("^UNIPROT:(\\S+)$");
+		final BufferedReader r = new BufferedReader(new FileReader(fileName));
 		for (String line = r.readLine(); line != null; line = r.readLine()) {
-			Matcher m = pat.matcher(line);
-			if (m.matches())
+			final Matcher m = pat.matcher(line);
+			// uniprot.acc has duplicates
+			if (m.matches() && !accs.contains(m.group(1)))
 				accs.add(m.group(1));
 		}
 		return accs;
 	}
 
-	public static void main(String[] args) throws IOException {
-		List<String> s = readAccList("uniprot.acc");
+	public static void main(final String[] args) throws IOException {
+		final List<String> s = readAccList("uniprot.acc");
 		System.out.println(s.size() + " accs");
 	}
 }

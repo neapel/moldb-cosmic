@@ -12,5 +12,9 @@
 			<attribute name="maven.pomderived" value="true"/>
 		</attributes>
 	</classpathentry>
+	<classpathentry kind="con" path="org.eclipse.jdt.USER_LIBRARY/UniprotJAPI"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.USER_LIBRARY/apache.commons.io"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.USER_LIBRARY/apache.commons.net"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.USER_LIBRARY/jdbc.sqllite"/>
 	<classpathentry kind="output" path="target/classes"/>
 </classpath>

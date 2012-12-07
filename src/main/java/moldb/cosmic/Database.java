@@ -29,14 +29,17 @@ public class Database {
 
 	public void init() throws IOException, SQLException {
 		reset();
+		UniProtBasedTables.init(conn);
 		MutationTable.init(conn);
 		SynonymsTable.init(conn);
 		System.out.println("done");
 	}
 
 	private void reset() throws SQLException {
+		UniProtBasedTables.teardown(conn);
 		MutationTable.teardown(conn);
 		SynonymsTable.teardown(conn);
+		UniProtBasedTables.setup(conn);
 		MutationTable.setup(conn);
 		SynonymsTable.setup(conn);
 	}

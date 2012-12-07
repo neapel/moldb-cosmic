@@ -7,8 +7,10 @@ import java.io.IOException;
 import java.net.URL;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 
 import org.apache.commons.io.FileUtils;
 
@@ -21,8 +23,8 @@ public class SynonymsTable {
 
 	public static void setup(final Connection conn) throws SQLException {
 		final Statement s = conn.createStatement();
-		s.executeUpdate("create table if not exists synonym ("
-				+ "symbol collate nocase, synonym collate nocase)");
+		s.executeUpdate("create table if not exists synonym (gene REFERENCES gene(name), synonym, PRIMARY KEY (gene, synonym))");
+		// + "symbol collate nocase, synonym collate nocase)");
 	}
 
 	public static void teardown(final Connection conn) throws SQLException {
@@ -38,19 +40,36 @@ public class SynonymsTable {
 		reader.readLine(); // header
 		final PreparedStatement ps = conn
 				.prepareStatement("insert into synonym values(?,?)");
+		final Statement stmt = conn.createStatement();
+		final ResultSet rs = stmt.executeQuery("select name from gene");
+		final ArrayList<String> genes = new ArrayList<String>();
+		// you can't add primary key later, so prevent inserting duplicates
+		final ArrayList<String> duplicates = new ArrayList<String>();
+		while (rs.next())
+			genes.add(rs.getString(1));
 		for (String line = reader.readLine(); line != null; line = reader
 				.readLine()) {
 			final String[] fields = line.split("\t");
-			ps.setString(1, fields[1]); // Approved Symbol
+
+			final ArrayList<String> symbols = new ArrayList<String>();
+			symbols.add(fields[1]);
 			if (fields[4].length() > 0)
-				for (final String previous : fields[4].split(",")) {
-					ps.setString(2, previous.trim());
-					ps.execute();
-				}
+				for (final String previous : fields[4].split(","))
+					symbols.add(previous.trim());
 			if (fields[6].length() > 0)
-				for (final String synonym : fields[6].split(",")) {
-					ps.setString(2, synonym.trim());
-					ps.execute();
+				for (final String synonym : fields[6].split(","))
+					symbols.add(synonym.trim());
+			for (final String s : symbols)
+				if (genes.contains(s)) {
+					ps.setString(1, s);
+					for (final String str : symbols) {
+						if (duplicates.contains(str))
+							continue;
+						if (s.equals(str))
+							duplicates.add(str);
+						ps.setString(2, str);
+						ps.execute();
+					}
 				}
 		}
 		reader.close();
