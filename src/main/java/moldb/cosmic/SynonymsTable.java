@@ -39,12 +39,10 @@ public class SynonymsTable {
 				fileName));
 		reader.readLine(); // header
 		final PreparedStatement ps = conn
-				.prepareStatement("insert into synonym values(?,?)");
+				.prepareStatement("insert or ignore into synonym values(?,?)");
 		final Statement stmt = conn.createStatement();
 		final ResultSet rs = stmt.executeQuery("select name from gene");
 		final ArrayList<String> genes = new ArrayList<String>();
-		// you can't add primary key later, so prevent inserting duplicates
-		final ArrayList<String> duplicates = new ArrayList<String>();
 		while (rs.next())
 			genes.add(rs.getString(1));
 		for (String line = reader.readLine(); line != null; line = reader
@@ -63,10 +61,6 @@ public class SynonymsTable {
 				if (genes.contains(s)) {
 					ps.setString(1, s);
 					for (final String str : symbols) {
-						if (duplicates.contains(str))
-							continue;
-						if (s.equals(str))
-							duplicates.add(str);
 						ps.setString(2, str);
 						ps.execute();
 					}
