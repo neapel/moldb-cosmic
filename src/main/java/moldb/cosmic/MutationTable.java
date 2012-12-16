@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.zip.GZIPInputStream;
@@ -20,12 +21,13 @@ public class MutationTable {
 
 	public static void setup(final Connection conn) throws SQLException {
 		final Statement s = conn.createStatement();
-		s.executeUpdate("create table if not exists mutation ("
-				+ "chromosome text collate nocase," + "position integer,"
-				+ "id text collate nocase," + "reference text collate nocase,"
-				+ "alternative text collate nocase," + "coding integer,"
-				+ "gene text collate nocase," + "strand text,"
-				+ "count integer)");
+		s.executeUpdate("create table if not exists mutation (position NOT NULL, cosmid PRIMARY KEY, reference nucleotide NOT NULL, alternative nucleotide NOT NULL, coding, gene REFERENCES gene(name), strand, amino acid notation, count)");
+		/*
+		 * + "chromosome text collate nocase," + "position integer," +
+		 * "id text collate nocase," + "reference text collate nocase," +
+		 * "alternative text collate nocase," + "coding integer," +
+		 * "gene text collate nocase," + "strand text," + "count integer)");
+		 */
 	}
 
 	public static void teardown(final Connection conn) throws SQLException {
@@ -40,6 +42,10 @@ public class MutationTable {
 				new GZIPInputStream(new FileInputStream(fileName))));
 		final PreparedStatement ps = conn
 				.prepareStatement("insert into mutation values(?,?,?,?,?,?,?,?,?)");
+		final PreparedStatement ps2 = conn
+				.prepareStatement("update gene set chromosome = ? where name = ?");
+		final PreparedStatement ps3 = conn
+				.prepareStatement("select gene from synonym where synonym = ?");
 		for (String line = reader.readLine(); line != null; line = reader
 				.readLine()) {
 			if (line.startsWith("#"))
@@ -51,13 +57,13 @@ public class MutationTable {
 			if (parts[7] == null)
 				continue;
 			ps.clearParameters();
-			ps.setString(1, parts[0]); // CHROM
-			ps.setString(2, parts[1]); // POS
-			ps.setString(3, parts[2]); // ID
-			ps.setString(4, parts[3]); // REF
-			ps.setString(5, parts[4]); // ALT
-			ps.setBoolean(6, isCoding);
-			String gene = null, strand = null, count = null;
+			ps2.setString(1, parts[0]); // CHROM
+			ps.setString(1, parts[1]); // POS
+			ps.setString(2, parts[2]); // ID
+			ps.setString(3, parts[3]); // REF
+			ps.setString(4, parts[4]); // ALT
+			ps.setBoolean(5, isCoding);
+			String gene = null, strand = null, count = null, aa = null;
 			for (final String field : parts[7].split(";")) {
 				final String[] kv = field.split("=");
 				if (kv[0] == "GENE")
@@ -66,16 +72,47 @@ public class MutationTable {
 					strand = kv[1];
 				else if (kv[0] == "CNT")
 					count = kv[1];
+				else if (kv[0] == "AA")
+					aa = kv[1];
 			}
-			if (gene == null || strand == null)
-				continue;
-			ps.setString(7, gene);
-			ps.setString(8, strand);
+			// if (gene == null || strand == null)
+			// continue;
+			ps3.setString(1, gene);
+			final ResultSet rs = ps3.executeQuery();
+			if (rs.next()) {
+				final String s = rs.getString(1);
+				ps2.setString(2, s);
+				ps2.execute();
+				ps.setString(6, s);
+			} else
+				continue; // gene not in db
+			ps.setString(7, strand);
+			ps.setString(8, aa);
 			ps.setString(9, count);
 			ps.executeUpdate();
 		}
 		reader.close();
 		conn.commit();
+		/*
+		 * final BufferedReader reader = new BufferedReader(new
+		 * InputStreamReader( new GZIPInputStream(new
+		 * FileInputStream(fileName)))); final PreparedStatement ps = conn
+		 * .prepareStatement("insert into mutation values(?,?,?,?,?,?,?,?,?)");
+		 * for (String line = reader.readLine(); line != null; line = reader
+		 * .readLine()) { if (line.startsWith("#")) continue; final String[]
+		 * parts = line.split("\t"); for (int i = 0; i < parts.length; i++) if
+		 * (parts[i].equals(".")) parts[i] = null; if (parts[7] == null)
+		 * continue; ps.clearParameters(); ps.setString(1, parts[0]); // CHROM
+		 * ps.setString(2, parts[1]); // POS ps.setString(3, parts[2]); // ID
+		 * ps.setString(4, parts[3]); // REF ps.setString(5, parts[4]); // ALT
+		 * ps.setBoolean(6, isCoding); String gene = null, strand = null, count
+		 * = null; for (final String field : parts[7].split(";")) { final
+		 * String[] kv = field.split("="); if (kv[0] == "GENE") gene = kv[1];
+		 * else if (kv[0] == "STRAND") strand = kv[1]; else if (kv[0] == "CNT")
+		 * count = kv[1]; } if (gene == null || strand == null) continue;
+		 * ps.setString(7, gene); ps.setString(8, strand); ps.setString(9,
+		 * count); ps.executeUpdate(); } reader.close(); conn.commit();
+		 */
 	}
 
 	static String coding_name = "cosmic_coding.vcf.gz";

@@ -30,18 +30,18 @@ public class Database {
 	public void init() throws IOException, SQLException {
 		reset();
 		UniProtBasedTables.init(conn);
-		MutationTable.init(conn);
 		SynonymsTable.init(conn);
+		MutationTable.init(conn);
 		System.out.println("done");
 	}
 
 	private void reset() throws SQLException {
 		UniProtBasedTables.teardown(conn);
-		MutationTable.teardown(conn);
 		SynonymsTable.teardown(conn);
+		MutationTable.teardown(conn);
 		UniProtBasedTables.setup(conn);
-		MutationTable.setup(conn);
 		SynonymsTable.setup(conn);
+		MutationTable.setup(conn);
 	}
 
 	public static void main(final String[] args) throws Exception {

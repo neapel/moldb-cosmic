@@ -28,7 +28,7 @@ public class UniProtBasedTables {
 	public static void setup(final Connection conn) throws SQLException {
 		final Statement s = conn.createStatement();
 		s.executeUpdate("create table if not exists protein (name PRIMARY KEY, uniprotid NOT NULL, accession NOT NULL, sequence NOT NULL)");
-		s.executeUpdate("create table if not exists gene (name PRIMARY KEY, coded protein REFERENCES protein(name))");
+		s.executeUpdate("create table if not exists gene (name PRIMARY KEY, coded protein REFERENCES protein(name), chromosome)");
 		s.executeUpdate("create table if not exists isoform (id PRIMARY KEY, protein REFERENCES protein(name), sequence)");
 	}
 
@@ -49,7 +49,7 @@ public class UniProtBasedTables {
 		final PreparedStatement protps = conn
 				.prepareStatement("insert into protein values (?,?,?,?)");
 		final PreparedStatement geneps = conn
-				.prepareStatement("insert into gene values (?,?)");
+				.prepareStatement("insert into gene values (?,?, null)");
 		final PreparedStatement isops = conn
 				.prepareStatement("insert into isoform values (?,?,?)");
 		int i = 0;
