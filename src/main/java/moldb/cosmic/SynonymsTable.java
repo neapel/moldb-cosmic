@@ -13,8 +13,11 @@ import java.sql.Statement;
 import java.util.ArrayList;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.log4j.Logger;
 
 public class SynonymsTable {
+	static Logger logger = Logger.getLogger(SynonymsTable.class);
+
 	/*
 	 * Fields: 0: HGNC ID 1: Approved Symbol 2: Approved Name 3: Status 4:
 	 * Previous Symbols (,) 5: Previous Names 6: Synonyms (,) 7: Chromosome 8:
@@ -34,7 +37,7 @@ public class SynonymsTable {
 
 	static void read(final Connection conn, final String fileName)
 			throws IOException, SQLException {
-		System.out.println("reading " + fileName);
+		logger.info("Reading synonyms from " + fileName);
 		final BufferedReader reader = new BufferedReader(new FileReader(
 				fileName));
 		reader.readLine(); // header
@@ -76,9 +79,10 @@ public class SynonymsTable {
 	static void download() throws IOException {
 		final File outfile = new File(synonyms_file);
 		if (!outfile.exists()) {
-			System.out.println("downloading to " + synonyms_file);
+			logger.info("Downloading synonyms to " + synonyms_file);
 			FileUtils.copyURLToFile(new URL(synonyms_url), outfile);
-		}
+		} else
+			logger.info("Not downloading synonyms, file exists.");
 	}
 
 	public static void init(final Connection conn) throws IOException,

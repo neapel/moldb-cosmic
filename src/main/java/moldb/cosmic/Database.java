@@ -6,7 +6,11 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 
+import org.apache.log4j.Logger;
+
 public class Database {
+	static Logger logger = Logger.getLogger(Database.class);
+
 	static {
 		try {
 			Class.forName("org.sqlite.JDBC");
@@ -28,7 +32,7 @@ public class Database {
 	}
 
 	public void init() throws IOException, SQLException {
-		reset();
+		logger.info("Creating Database.");
 		UniProtBasedTables.init(conn);
 		SynonymsTable.init(conn);
 		MutationTable.init(conn);
@@ -42,11 +46,6 @@ public class Database {
 		UniProtBasedTables.setup(conn);
 		SynonymsTable.setup(conn);
 		MutationTable.setup(conn);
-	}
-
-	public static void main(final String[] args) throws Exception {
-		final Database db = new Database("sample.db");
-		db.init();
 	}
 
 }
