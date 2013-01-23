@@ -31,6 +31,10 @@ public class Database {
 		conn.setAutoCommit(false);
 	}
 
+	public Connection getConnection() {
+		return conn;
+	}
+
 	public void init() throws IOException, SQLException {
 		logger.info("Creating Database.");
 		UniProtBasedTables.init(conn);
