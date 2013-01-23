@@ -145,17 +145,17 @@ public class MutationTable {
 						new Thread() {
 							@Override
 							public void run() {
+								final double mb = ftpfile.getSize() / 1024.0 / 1024.0;
 								while (cos.getCount() != ftpfile.getSize()) {
 									try {
 										Thread.sleep(3000);
 									} catch (final InterruptedException e) {
 									}
-									logger.debug(Math.round(100.0
-											* cos.getCount()
-											/ ftpfile.getSize())
-											+ "% of "
-											+ ftpfile.getSize()
-											/ 1024 + "kB downloaded.");
+									final double pc = 100.0 * cos.getCount()
+											/ ftpfile.getSize();
+									logger.debug(String.format(
+											"%.1f%% of %.2fMB downloaded.", pc,
+											mb));
 								}
 							};
 						}.start();
