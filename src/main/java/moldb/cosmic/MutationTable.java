@@ -168,6 +168,7 @@ public class MutationTable {
 
 	public static void init(final Connection conn) throws IOException,
 			SQLException {
+		setup(conn);
 		download();
 		read(conn, coding_name, true);
 		read(conn, noncoding_name, false);

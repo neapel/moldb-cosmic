@@ -87,6 +87,7 @@ public class SynonymsTable {
 
 	public static void init(final Connection conn) throws IOException,
 			SQLException {
+		setup(conn);
 		download();
 		read(conn, synonyms_file);
 	}

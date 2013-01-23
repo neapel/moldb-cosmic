@@ -131,6 +131,7 @@ public class UniProtBasedTables {
 
 	public static void init(final Connection conn) throws IOException,
 			SQLException {
+		setup(conn);
 		final List<String> acclist = readAccList(path);
 
 		// ACCs die schon in der Datenbank stehen herausfiltern.
