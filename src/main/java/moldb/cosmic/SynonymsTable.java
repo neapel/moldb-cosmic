@@ -7,7 +7,6 @@ import java.io.IOException;
 import java.net.URL;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
@@ -26,13 +25,17 @@ public class SynonymsTable {
 
 	public static void setup(final Connection conn) throws SQLException {
 		final Statement s = conn.createStatement();
-		s.executeUpdate("create table if not exists synonym (gene REFERENCES gene(name), synonym, PRIMARY KEY (gene, synonym))");
+		synchronized (conn) {
+			s.executeUpdate("create table if not exists synonym (gene REFERENCES gene(name), synonym, PRIMARY KEY (gene, synonym))");
+		}
 		// + "symbol collate nocase, synonym collate nocase)");
 	}
 
 	public static void teardown(final Connection conn) throws SQLException {
 		final Statement s = conn.createStatement();
-		s.executeUpdate("drop table if exists synonym");
+		synchronized (conn) {
+			s.executeUpdate("drop table if exists synonym");
+		}
 	}
 
 	static void read(final Connection conn, final String fileName)
@@ -41,13 +44,8 @@ public class SynonymsTable {
 		final BufferedReader reader = new BufferedReader(new FileReader(
 				fileName));
 		reader.readLine(); // header
-		final PreparedStatement ps = conn
+		final PreparedStatement insertSynonym = conn
 				.prepareStatement("insert or ignore into synonym values(?,?)");
-		final Statement stmt = conn.createStatement();
-		final ResultSet rs = stmt.executeQuery("select name from gene");
-		final ArrayList<String> genes = new ArrayList<String>();
-		while (rs.next())
-			genes.add(rs.getString(1));
 		for (String line = reader.readLine(); line != null; line = reader
 				.readLine()) {
 			final String[] fields = line.split("\t");
@@ -61,16 +59,18 @@ public class SynonymsTable {
 				for (final String synonym : fields[6].split(","))
 					symbols.add(synonym.trim());
 			for (final String s : symbols)
-				if (genes.contains(s)) {
-					ps.setString(1, s);
-					for (final String str : symbols) {
-						ps.setString(2, str);
-						ps.execute();
-					}
+				insertSynonym.setString(1, s);
+			for (final String str : symbols) {
+				insertSynonym.setString(2, str);
+				synchronized (conn) {
+					insertSynonym.executeUpdate();
 				}
+			}
 		}
 		reader.close();
-		conn.commit();
+		synchronized (conn) {
+			conn.commit();
+		}
 	}
 
 	static String synonyms_file = "synonyms.csv";

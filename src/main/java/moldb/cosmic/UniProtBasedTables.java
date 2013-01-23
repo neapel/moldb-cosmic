@@ -50,16 +50,20 @@ public class UniProtBasedTables {
 
 	public static void setup(final Connection conn) throws SQLException {
 		final Statement s = conn.createStatement();
-		s.executeUpdate("create table if not exists protein (name PRIMARY KEY, uniprotid NOT NULL, accession NOT NULL, sequence NOT NULL)");
-		s.executeUpdate("create table if not exists gene (name PRIMARY KEY, coded protein REFERENCES protein(name), chromosome)");
-		s.executeUpdate("create table if not exists isoform (id PRIMARY KEY, protein REFERENCES protein(name), sequence)");
+		synchronized (conn) {
+			s.executeUpdate("create table if not exists protein (name PRIMARY KEY, uniprotid NOT NULL, accession NOT NULL, sequence NOT NULL)");
+			s.executeUpdate("create table if not exists gene (name PRIMARY KEY, coded protein REFERENCES protein(name), chromosome)");
+			s.executeUpdate("create table if not exists isoform (id PRIMARY KEY, protein REFERENCES protein(name), sequence)");
+		}
 	}
 
 	public static void teardown(final Connection conn) throws SQLException {
 		final Statement s = conn.createStatement();
-		s.executeUpdate("drop table if exists protein");
-		s.executeUpdate("drop table if exists gene");
-		s.executeUpdate("drop table if exists isoform");
+		synchronized (conn) {
+			s.executeUpdate("drop table if exists protein");
+			s.executeUpdate("drop table if exists gene");
+			s.executeUpdate("drop table if exists isoform");
+		}
 	}
 
 	static boolean hasProtein(final Connection conn, final String acc) {
@@ -67,9 +71,11 @@ public class UniProtBasedTables {
 			final PreparedStatement s = conn
 					.prepareStatement("select count(*) != 0 from protein where accession = ?");
 			s.setString(1, acc);
-			final ResultSet rs = s.executeQuery();
-			rs.next();
-			return rs.getBoolean(1);
+			synchronized (conn) {
+				final ResultSet rs = s.executeQuery();
+				rs.next();
+				return rs.getBoolean(1);
+			}
 		} catch (final SQLException e) {
 			return false;
 		}
@@ -104,7 +110,9 @@ public class UniProtBasedTables {
 				geneps.setString(1, g.hasGeneName() ? g.getGeneName()
 						.getValue() : null);
 				geneps.setString(2, recName);
-				geneps.execute();
+				synchronized (conn) {
+					geneps.execute();
+				}
 			}
 			isops.setString(2, recName);
 			for (final Comment com : entry
@@ -115,7 +123,9 @@ public class UniProtBasedTables {
 							entry.getSplicedSequence(iso.getName().getValue()));
 					for (final IsoformId id : iso.getIds()) {
 						isops.setString(1, id.getValue());
-						isops.execute();
+						synchronized (conn) {
+							isops.execute();
+						}
 					}
 				}
 		}

@@ -8,7 +8,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.zip.GZIPInputStream;
@@ -25,12 +24,16 @@ public class MutationTable {
 
 	public static void setup(final Connection conn) throws SQLException {
 		final Statement s = conn.createStatement();
-		s.executeUpdate("create table if not exists mutation (position NOT NULL, cosmid PRIMARY KEY, reference nucleotide NOT NULL, alternative nucleotide NOT NULL, coding, gene REFERENCES gene(name), strand, amino acid notation, count)");
+		synchronized (conn) {
+			s.executeUpdate("create table if not exists mutation (position NOT NULL, cosmid PRIMARY KEY, reference_nucleotide NOT NULL, alternative_nucleotide, coding, gene REFERENCES gene(name), strand, amino_acid_notation, count)");
+		}
 	}
 
 	public static void teardown(final Connection conn) throws SQLException {
 		final Statement s = conn.createStatement();
-		s.executeUpdate("drop table if exists mutation");
+		synchronized (conn) {
+			s.executeUpdate("drop table if exists mutation");
+		}
 	}
 
 	static void read(final Connection conn, final String fileName,
@@ -39,25 +42,16 @@ public class MutationTable {
 				+ isCoding);
 		final BufferedReader reader = new BufferedReader(new InputStreamReader(
 				new GZIPInputStream(new FileInputStream(fileName))));
-		final PreparedStatement ps = conn
+		final PreparedStatement insertMutation = conn
 				.prepareStatement("insert or replace into mutation values(?,?,?,?,?,?,?,?,?)");
-		final PreparedStatement ps2 = conn
+		final PreparedStatement setChromosome = conn
 				.prepareStatement("update gene set chromosome = ? where name = ?");
-		final PreparedStatement ps3 = conn
-				.prepareStatement("select gene from synonym where synonym = ?");
-		int lineNumber = 0;
+		int lineNumber = 0, inserted = 0;
 		for (String line = reader.readLine(); line != null; line = reader
 				.readLine()) {
 			lineNumber++;
-			// Kompromiss zwischen jedes mal commiten (sehr langsam) und erst am
-			// Ende (auch langsam).
-			if (lineNumber % 1000 == 0)
-				conn.commit();
 			if (lineNumber % 10000 == 0)
 				logger.debug("Line #" + lineNumber + ": " + line);
-			// DEBUG
-			if (lineNumber > 20000)
-				break;
 			if (line.startsWith("#"))
 				continue;
 			final String[] parts = line.split("\t");
@@ -66,45 +60,57 @@ public class MutationTable {
 					parts[i] = null;
 			if (parts[7] == null)
 				continue;
-			ps.clearParameters();
-			ps2.setString(1, parts[0]); // CHROM
-			ps.setString(1, parts[1]); // POS
-			ps.setString(2, parts[2]); // ID
-			ps.setString(3, parts[3]); // REF
-			ps.setString(4, parts[4]); // ALT
-			ps.setBoolean(5, isCoding);
+			insertMutation.clearParameters();
+			setChromosome.setString(1, parts[0]); // CHROM
+			insertMutation.setString(1, parts[1]); // POS
+			insertMutation.setString(2, parts[2]); // ID
+			insertMutation.setString(3, parts[3]); // REF
+			insertMutation.setString(4, parts[4]); // ALT
+			insertMutation.setBoolean(5, isCoding);
 			String gene = null, strand = null, count = null, aa = null;
 			for (final String field : parts[7].split(";")) {
 				final String[] kv = field.split("=");
-				if (kv[0] == "GENE")
+				if (kv.length != 2)
+					continue;
+				if (kv[0].equalsIgnoreCase("GENE"))
 					gene = kv[1];
-				else if (kv[0] == "STRAND")
+				else if (kv[0].equalsIgnoreCase("STRAND"))
 					strand = kv[1];
-				else if (kv[0] == "CNT")
+				else if (kv[0].equalsIgnoreCase("CNT"))
 					count = kv[1];
-				else if (kv[0] == "AA")
+				else if (kv[0].equalsIgnoreCase("AA"))
 					aa = kv[1];
 			}
-			// if (gene == null || strand == null)
-			// continue;
-			ps3.setString(1, gene);
-			final ResultSet rs = ps3.executeQuery();
-			if (rs.next()) {
-				final String s = rs.getString(1);
-				ps2.setString(2, s);
-				ps2.execute();
-				ps.setString(6, s);
-			} else
-				continue; // gene not in db
-			ps.setString(7, strand);
-			ps.setString(8, aa);
-			ps.setString(9, count);
-			ps.executeUpdate();
+			if (gene == null)
+				continue;
+			// Hier erstmal COSMIC-Gen eintragen, in zweitem Schritt dann Update
+			// (oder SQL-iger: Abfrage mit Join? Oder zumindest update where)
+			// Sonst ist es nämlich enorm langsam.
+			insertMutation.setString(6, gene);
+			insertMutation.setString(7, strand);
+			insertMutation.setString(8, aa);
+			insertMutation.setString(9, count);
+			synchronized (conn) {
+				inserted++;
+				insertMutation.executeUpdate();
+			}
 		}
 		reader.close();
-		logger.debug("Done reading.");
-		conn.commit();
-		logger.debug("Commited.");
+		logger.debug("Done reading " + lineNumber + " lines.");
+		synchronized (conn) {
+			conn.commit();
+		}
+		logger.debug("Commited " + inserted + " mutations.");
+
+		/*
+		 * final PreparedStatement selectGene = conn
+		 * .prepareStatement("select gene from synonym where synonym = ?");
+		 * selectGene.setString(1, gene); final ResultSet rs =
+		 * selectGene.executeQuery(); if (rs.next()) { final String s =
+		 * rs.getString(1); setChromosome.setString(2, s); synchronized (conn) {
+		 * setChromosome.executeUpdate(); } insertMutation.setString(6, s); }
+		 * else { noSynonym++; continue; } }
+		 */
 	}
 
 	static String coding_name = "cosmic_coding.vcf.gz";
@@ -169,6 +175,7 @@ public class MutationTable {
 	public static void init(final Connection conn) throws IOException,
 			SQLException {
 		setup(conn);
+		// Evtl. neue Daten herunterladen
 		download();
 		read(conn, coding_name, true);
 		read(conn, noncoding_name, false);
