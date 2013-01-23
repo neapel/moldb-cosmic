@@ -13,6 +13,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.zip.GZIPInputStream;
 
+import org.apache.commons.io.output.CountingOutputStream;
 import org.apache.commons.net.ftp.FTP;
 import org.apache.commons.net.ftp.FTPClient;
 import org.apache.commons.net.ftp.FTPFile;
@@ -131,9 +132,28 @@ public class MutationTable {
 					try {
 						final FileOutputStream out = new FileOutputStream(
 								outfile);
+						final CountingOutputStream cos = new CountingOutputStream(
+								out);
 						logger.info("Downloading " + ftpname + " to " + outname);
 						ftp.setFileType(FTP.BINARY_FILE_TYPE);
-						ftp.retrieveFile(ftpname, out);
+						new Thread() {
+							@Override
+							public void run() {
+								while (cos.getCount() != ftpfile.getSize()) {
+									try {
+										Thread.sleep(3000);
+									} catch (final InterruptedException e) {
+									}
+									logger.debug(Math.round(100.0
+											* cos.getCount()
+											/ ftpfile.getSize())
+											+ "% of "
+											+ ftpfile.getSize()
+											/ 1024 + "kB downloaded.");
+								}
+							};
+						}.start();
+						ftp.retrieveFile(ftpname, cos);
 						out.close();
 						outfile.setLastModified(ftpdate);
 					} catch (final CopyStreamException e) {
