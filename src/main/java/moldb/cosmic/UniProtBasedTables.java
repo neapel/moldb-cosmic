@@ -62,14 +62,17 @@ public class UniProtBasedTables {
 		s.executeUpdate("drop table if exists isoform");
 	}
 
-	static boolean hasProtein(final Connection conn, final String acc)
-			throws SQLException {
-		final PreparedStatement s = conn
-				.prepareStatement("select count(*) != 0 from protein where accession = ?");
-		s.setString(1, acc);
-		final ResultSet rs = s.executeQuery();
-		rs.next();
-		return rs.getBoolean(1);
+	static boolean hasProtein(final Connection conn, final String acc) {
+		try {
+			final PreparedStatement s = conn
+					.prepareStatement("select count(*) != 0 from protein where accession = ?");
+			s.setString(1, acc);
+			final ResultSet rs = s.executeQuery();
+			rs.next();
+			return rs.getBoolean(1);
+		} catch (final SQLException e) {
+			return false;
+		}
 	}
 
 	static void read(final Connection conn, final List<String> acc)
