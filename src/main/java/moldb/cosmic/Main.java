@@ -1,5 +1,7 @@
 package moldb.cosmic;
 
+import javax.swing.UIManager;
+
 import org.apache.log4j.xml.DOMConfigurator;
 
 public class Main {
@@ -9,5 +11,11 @@ public class Main {
 
 		final Database db = new Database("sample.db");
 		db.init();
+
+		try {
+			UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+		} catch (final Exception e) {
+		}
+		new Gui(db.getConnection());
 	}
 }
