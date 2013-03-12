@@ -1,0 +1,62 @@
+\documentclass{scrartcl}
+\usepackage[ngerman]{babel}
+\usepackage{fontspec,microtype,hyperref}
+\hypersetup{colorlinks=false,pdfborder={0 0 0}}
+
+\title{COSMIC}
+\subtitle{Protokoll zum Projekt im Modul „Molekularbiologische Datenbanken“}
+\author{%
+	\href{mailto:thomas.dencker@stud.uni-goettingen.de}{Thomas Dencker} \and
+	\href{mailto:robert.kratel@stud.uni-goettingen.de}{Robert Kratel} \and
+	\href{pascal.schmitt1@stud.uni-goettingen.de}{Pascal Schmitt}}
+
+\begin{document}
+\maketitle{}
+\vfill
+\tableofcontents
+\newpage
+
+\section{Aufgabenstellung}
+
+Aufgabe war, in Java eine auf \href{http://sqlite.org/}{SQLite} basierende Datenbank aufzubauen. Diese sollte, ausgehend von einer Liste von „accession numbers“ Informationen über diverse Proteine und Gene aus der \href{http://uniprot.org/}{UniProt}-Datenbank enthalten, außerdem Synonyme Gennamen aus der \href{http://genenames.org/}{GeneNames}-Datenbank und Informationen über kodierende- und nichtkodierende Mutationen der Gene aus der \href{http://cancer.sanger.ac.uk/cancergenome/projects/studies/}{COSMIC}-Datenbank.
+
+\subsection{Verwendete Datenbanken}
+
+Das Projekt kombiniert Informationen aus drei Datenbanken, deren Inhalt im Folgenden kurz beschrieben wird.
+
+\subsubsection{UniProt}
+protein n:n gen
+\subsubsection{GeneNames}
+genname 1:n genname(synonym)
+\subsubsection{COSMIC}
+gen 1:n mutation
+
+\section{Implementierung}
+
+Das im Rahmen dieses Projekts erstellte Programm liest Daten aus den Quelldatenbanken ein, speichert sie in einer eigenen SQLite-basierten Datenbank und führt darauf Abfragen aus.
+
+Zuerst müssen die relevanten Daten geladen werden.
+
+\subsection{Einlesen der Daten}
+\subsubsection{UniProt}
+acc-liste, UniProtJAPI
+
+\subsubsection{GeneNames}
+Auf der \href{http://genenames.org/}{GeneNames-Website} kann der Datenbestand in diversen Formaten abgefragt werden, unser Programm lädt die Daten in einem Tab-separierten Format per HTTP herunter, parst sie zeilenweise und schreibt sie in die \texttt{synonym}-Tabelle. Die Spalte „Approved Symbol“ enthält dabei den offiziellen Namen, in „Previous Symbols“ und „Synonyms“ stehen, durch Komma getrennt, alternative Namen. Für jeden Namen, auch den offiziellen, wird eine Zeile in die Tabelle geschrieben die auf den offiziellen Namen verweist, was einfache Berücksichtigung der Synonyme mittels Join über die \texttt{synonym}-Tabelle ermöglicht.
+
+\subsubsection{COSMIC}
+Die Listen der kodierenden und nichtkodierenden Genmutationen werden, sofern sie veraltet sind, vom FTP-Server des Sanger-Instituts geladen. Sie liegen mittels GZip gepackt im „Variant Call Format“ (VCF) vor, ein auf dem Tab-separierten Format basierendes Textformat das für die Speicherung von SNPs entworfen wurde. Für jede Mutation ist das Chromosom, die Position, Ursprungs- und Alternativsequenz angegeben. Falls die Mutation in einem Gen liegt, wird in der Info-Spalte auch der Genname genannt, dies ist bei allen kodierenden Mutationen der Fall. Einige nichtkodierende Mutationen liegen ebenfalls innerhalb eines Gens, allerdings z.B. in Introns, wirken sich also nicht auf das Endprodukt aus. SNPs, für die kein Gen angegeben ist, werden ignoriert, der Rest in die \texttt{mutation}-Tabelle geschrieben.
+
+\subsection{Datenbank-Schema}
+
+ER-Diagramm
+
+\subsection{Abfragen}
+
+gui/text
+
+\section{Benutzung}
+
+beispielabfragen
+
+\end{document}
