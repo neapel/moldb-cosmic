@@ -28,7 +28,6 @@ public class SynonymsTable {
 		synchronized (conn) {
 			s.executeUpdate("create table if not exists synonym (gene REFERENCES gene(name), synonym, PRIMARY KEY (gene, synonym))");
 		}
-		// + "symbol collate nocase, synonym collate nocase)");
 	}
 
 	public static void teardown(final Connection conn) throws SQLException {
@@ -58,17 +57,24 @@ public class SynonymsTable {
 			if (fields[6].length() > 0)
 				for (final String synonym : fields[6].split(","))
 					symbols.add(synonym.trim());
-			for (final String s : symbols)
+			for (final String s : symbols) {
 				insertSynonym.setString(1, s);
-			for (final String str : symbols) {
-				insertSynonym.setString(2, str);
-				synchronized (conn) {
-					insertSynonym.executeUpdate();
+				for (final String str : symbols) {
+					insertSynonym.setString(2, str);
+					synchronized (conn) {
+						insertSynonym.executeUpdate();
+					}
 				}
 			}
 		}
 		reader.close();
 		synchronized (conn) {
+			// insert and ignore funktioniert nicht mit foreign keys ..
+			final Statement s = conn.createStatement();
+			s.executeUpdate("delete from synonym where not exists (select * from gene where synonym.gene = gene.name)");
+			s.executeUpdate("PRAGMA foreign_keys = ON");
+			// es gibt gene ohne Synonymeintrag
+			s.executeUpdate("insert or ignore into synonym select name,name from gene where not exists (select * from synonym where synonym.gene = gene.name)");
 			conn.commit();
 		}
 	}

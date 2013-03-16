@@ -38,27 +38,29 @@ public class Database {
 	public void init() throws IOException, SQLException {
 		logger.info("Creating Database.");
 		// UniProt und Cosmic-Daten gleichzeitig einlesen.
-		final Thread a = new Thread() {
-			@Override
-			public void run() {
-				try {
-					UniProtBasedTables.init(conn);
-				} catch (final Exception e) {
-					logger.error(e.getMessage(), e);
-				}
-			}
-		};
-		a.start();
+		// final Thread a = new Thread() {
+		// @Override
+		// public void run() {
+		// try {
+		// UniProtBasedTables.init(conn);
+		// } catch (final Exception e) {
+		// logger.error(e.getMessage(), e);
+		// }
+		// }
+		// };
+		// a.start();
+		// SynonymsTable benötigt GenTable
+		UniProtBasedTables.init(conn);
 		// MutationTable benötigt SynonymsTable.
 		SynonymsTable.init(conn);
 		MutationTable.init(conn);
-		try {
-			a.join();
-		} catch (final InterruptedException e) {
-		}
+		// try {
+		// a.join();
+		// } catch (final InterruptedException e) {
+		// }
 	}
 
-	private void reset() throws SQLException {
+	protected void reset() throws SQLException {
 		UniProtBasedTables.teardown(conn);
 		SynonymsTable.teardown(conn);
 		MutationTable.teardown(conn);

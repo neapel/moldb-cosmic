@@ -40,7 +40,8 @@ public class UniProtBasedTables {
 		final BufferedReader r = new BufferedReader(new FileReader(fileName));
 		for (String line = r.readLine(); line != null; line = r.readLine()) {
 			final Matcher m = pat.matcher(line);
-			// uniprot.acc has duplicates
+			// 26 Zeilen enthalten Duplikate, müssen somit nicht
+			// eingelesen werden
 			if (m.matches() && !accs.contains(m.group(1)))
 				accs.add(m.group(1));
 		}
@@ -95,23 +96,28 @@ public class UniProtBasedTables {
 				.prepareStatement("insert or replace into gene values (?,?, null)");
 		final PreparedStatement isops = conn
 				.prepareStatement("insert or replace into isoform values (?,?,?)");
-		int i = 0;
-		// System.out.println(entries.getResultSize());
+		final List<String> primAcc = new ArrayList<String>();
 		for (final UniProtEntry entry : entries) {
 			final String recName = entry.getProteinDescription()
 					.getRecommendedName().getFieldsByType(FieldType.FULL)
 					.get(0).getValue();
 			protps.setString(1, recName);
 			protps.setString(2, entry.getUniProtId().getValue());
-			protps.setString(3, acc.get(i++));
+			final String pa = entry.getPrimaryUniProtAccession().getValue();
+			primAcc.add(pa);
+			protps.setString(3, pa);
 			protps.setString(4, entry.getSequence().getValue());
-			protps.execute();
+			synchronized (conn) {
+				protps.executeUpdate();
+			}
+			if (entry.getGenes().size() > 1)
+				logger.info(pa + " has more than one gene.");
 			for (final Gene g : entry.getGenes()) {
 				geneps.setString(1, g.hasGeneName() ? g.getGeneName()
 						.getValue() : null);
 				geneps.setString(2, recName);
 				synchronized (conn) {
-					geneps.execute();
+					geneps.executeUpdate();
 				}
 			}
 			isops.setString(2, recName);
@@ -124,13 +130,19 @@ public class UniProtBasedTables {
 					for (final IsoformId id : iso.getIds()) {
 						isops.setString(1, id.getValue());
 						synchronized (conn) {
-							isops.execute();
+							isops.executeUpdate();
 						}
 					}
 				}
 		}
+		for (final String s : acc)
+			if (!primAcc.contains(s))
+				logger.debug("No entry found for: " + s
+						+ "(most likely deleted)");
 		logger.info("Done.");
-		conn.commit();
+		synchronized (conn) {
+			conn.commit();
+		}
 		logger.info("Commited.");
 	}
 

@@ -8,8 +8,10 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Hashtable;
 import java.util.zip.GZIPInputStream;
 
 import org.apache.commons.io.output.CountingOutputStream;
@@ -25,7 +27,7 @@ public class MutationTable {
 	public static void setup(final Connection conn) throws SQLException {
 		final Statement s = conn.createStatement();
 		synchronized (conn) {
-			s.executeUpdate("create table if not exists mutation (position NOT NULL, cosmid PRIMARY KEY, reference_nucleotide NOT NULL, alternative_nucleotide, coding, gene REFERENCES gene(name), strand, amino_acid_notation, count)");
+			s.executeUpdate("create table if not exists mutation (position NOT NULL, cosmid, reference_nucleotide NOT NULL, alternative_nucleotide, coding, gene REFERENCES gene(name), strand, amino_acid_notation, count)");
 		}
 	}
 
@@ -42,6 +44,14 @@ public class MutationTable {
 				+ isCoding);
 		final BufferedReader reader = new BufferedReader(new InputStreamReader(
 				new GZIPInputStream(new FileInputStream(fileName))));
+		final Statement s = conn.createStatement();
+		final ResultSet rs = s.executeQuery("select * from synonym");
+		// wenn die Datenbank das nur mit angezogener Handbremse schafft, muss
+		// man das halt selber machen
+		final Hashtable<String, String> syn = new Hashtable<String, String>(
+				100000);
+		while (rs.next())
+			syn.put(rs.getString(2), rs.getString(1));
 		final PreparedStatement insertMutation = conn
 				.prepareStatement("insert or replace into mutation values(?,?,?,?,?,?,?,?,?)");
 		final PreparedStatement setChromosome = conn
@@ -50,8 +60,8 @@ public class MutationTable {
 		for (String line = reader.readLine(); line != null; line = reader
 				.readLine()) {
 			lineNumber++;
-			if (lineNumber % 10000 == 0)
-				logger.debug("Line #" + lineNumber + ": " + line);
+			// if (lineNumber % 10000 == 0)
+			// logger.debug("Line #" + lineNumber + ": " + line);
 			if (line.startsWith("#"))
 				continue;
 			final String[] parts = line.split("\t");
@@ -61,6 +71,7 @@ public class MutationTable {
 			if (parts[7] == null)
 				continue;
 			insertMutation.clearParameters();
+			setChromosome.clearParameters();
 			setChromosome.setString(1, parts[0]); // CHROM
 			insertMutation.setString(1, parts[1]); // POS
 			insertMutation.setString(2, parts[2]); // ID
@@ -81,26 +92,28 @@ public class MutationTable {
 				else if (kv[0].equalsIgnoreCase("AA"))
 					aa = kv[1];
 			}
+			final String before = gene;
+			gene = syn.get(gene);
+
 			if (gene == null)
 				continue;
-			// Hier erstmal COSMIC-Gen eintragen, in zweitem Schritt dann Update
-			// (oder SQL-iger: Abfrage mit Join? Oder zumindest update where)
-			// Sonst ist es nämlich enorm langsam.
+
+			// System.out.println(before + " " + gene);
+
+			setChromosome.setString(2, gene);
 			insertMutation.setString(6, gene);
 			insertMutation.setString(7, strand);
 			insertMutation.setString(8, aa);
 			insertMutation.setString(9, count);
 			synchronized (conn) {
 				inserted++;
+				setChromosome.executeUpdate();
 				insertMutation.executeUpdate();
 			}
 		}
 		reader.close();
 		logger.debug("Done reading " + lineNumber + " lines.");
-		synchronized (conn) {
-			conn.commit();
-		}
-		logger.debug("Commited " + inserted + " mutations.");
+		logger.debug("Inserted " + inserted + " mutations.");
 
 		/*
 		 * final PreparedStatement selectGene = conn
