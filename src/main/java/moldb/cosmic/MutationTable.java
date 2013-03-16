@@ -92,13 +92,11 @@ public class MutationTable {
 				else if (kv[0].equalsIgnoreCase("AA"))
 					aa = kv[1];
 			}
-			final String before = gene;
+
 			gene = syn.get(gene);
 
 			if (gene == null)
 				continue;
-
-			// System.out.println(before + " " + gene);
 
 			setChromosome.setString(2, gene);
 			insertMutation.setString(6, gene);
