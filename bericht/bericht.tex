@@ -18,45 +18,93 @@
 
 \section{Aufgabenstellung}
 
-Aufgabe war, in Java eine auf \href{http://sqlite.org/}{SQLite} basierende Datenbank aufzubauen. Diese sollte, ausgehend von einer Liste von „accession numbers“ Informationen über diverse Proteine und Gene aus der \href{http://uniprot.org/}{UniProt}-Datenbank enthalten, außerdem Synonyme Gennamen aus der \href{http://genenames.org/}{GeneNames}-Datenbank und Informationen über kodierende- und nichtkodierende Mutationen der Gene aus der \href{http://cancer.sanger.ac.uk/cancergenome/projects/studies/}{COSMIC}-Datenbank.
+Die Aufgabenstellung des Datenbankprojektes war es, eine auf \href{http://sqlite.org/}{SQLite} basierende Datenbank aufzubauen. Den Ausgangspunkt dieser Datenbank stellt eine Liste von „UniProt accession numbers“ dar. Die Datenbank sollte Informationen aus den entsprechenden Einträgen der \href{http://uniprot.org/}{UniProt}-Datenbank enthalten, wie den Protein- und Gennamen. Den Gennamen sollten außerdem alle Synonyme zugeordnet werden, welche in der \href{http://genenames.org/}{GeneNames}-Datenbank gespeichert sind.
+   Neben diesen allgemeinen Aufgaben sollten kodierende und nichtkodierende Mutationen in Krebserkranken in den Genen der Datenbank identifiziert werden. Diese Informationen sollten der \href{http://cancer.sanger.ac.uk/cancergenome/projects/studies/}{COSMIC}-Datenbank entnommen werden.
+   Darüber hinaus sollte das relationale Datenbank-Schema auf Grundlage eines Entity-Relationship-Modells entworfen werden.
 
 \subsection{Verwendete Datenbanken}
 
 Das Projekt kombiniert Informationen aus drei Datenbanken, deren Inhalt im Folgenden kurz beschrieben wird.
 
 \subsubsection{UniProt}
-protein n:n gen
+
+Die UniProt-Datenbank ist eine freizugängliche Datenbank, die Sequenzen und funktionelle Informationen zu Proteinen enthält. Diese werden von der Swiss-Prot- und der TrEMBL-Datenbank bereitgestellt. Die Einträge der Datenbank können u.a. durch die UniProtJAPI abgefragt und gespeichert werden.
+
 \subsubsection{GeneNames}
-genname 1:n genname(synonym)
+
+genenames.org ist eine Datenbank, welche vom HGNC(HUGO Gene Nomenclature Committee) akzeptierte Gennomenklatur enthält. Unter anderem sind das anerkannte Symbol, die vorherigen Symbole und Synonyme zu rund 19000 proteinkodierenden Genen downloadbar.
+
 \subsubsection{COSMIC}
-gen 1:n mutation
+
+Die COSMIC-Datenbank wird vom Sanger-Institut bereitgestellt und enthält Informationen zu somatischen kodierenden und nicht-kodierenden Mutationen in Krebserkrankungen.
+
+\section{Datenbank-Schema}
+
+\subsection{Entity-Relationship-Modell}
+
+Ausgangspunkt der Datenbank sind die durch die "UniProt accession numbers" referenzierten Proteine, welche die erste Entität des Modells bilden. Als Attribute wurden der in der Aufgabenstellung geforderte Proteinname, die UniProtID und die accession number gewählt, über die weitere Informationen abgerufen werden könnten. Außerdem gibt es die Sequenz als weiteres Attribut, um diese ggf. mit den Sequenzen der Isoformen vergleichen zu können.
+   Zu den Proteinen sollten die in der UniProt-Datenbank angegebenen Gennamen gespeichert werden. Da es Proteine gibt, die von mehr als einem Gen kodiert werden und Gene gibt, die mehr als ein in der Datenbank aufgeführtes Protein kodieren, besteht eine n:n Beziehung zwischen Genen und Proteinen und Gen ist somit die zweite Entität des Modells.
+   Desweiteren waren die angegebenen Isoformen der Proteine zu speichern. Da hier offensichtlich eine 1:n Beziehung besteht, bilden die Isoformen den dritten Entitätstyp. Als Attribute sind ID und die Sequenz angedacht.
+   Die Synonyme der genenames.org-Datenbank und die Mutationen der COSMIC-Datenbank bilden die letzten beiden Entitäten, die mit den Genen bzw. der Gen/Synonym-Aggregation in Beziehung stehen. Als Attribute der Mutationen wurden alle verfügbaren Informationen der COSMIC-Einträge verwendet, bis auf das Chromosom, welches den entsprechenden Genen zugeordnet wurde, da dies dort als Attribut mehr Relevanz hat.
+
+\newpage
+*BILD*
+\newpage
+
+\subsection{Relationales Datenbank-Schema}
+
+Das Entity-Relationship-Modell wurde wie folgt in ein relationales Datenbankschema überführt.
+
+protein (name PRIMARY KEY, uniprotid NOT NULL, accession NOT NULL, sequence NOT NULL)
+gene (name PRIMARY KEY, coded protein REFERENCES protein(name), chromosome)
+isoform (id PRIMARY KEY, protein REFERENCES protein(name), sequence)
+mutation (position NOT NULL, cosmid PRIMARY KEY, reference_nucleotide NOT NULL, alternative_nucleotide, coding, gene REFERENCES gene(name), strand, amino_acid_notation, count)
+synonym (gene REFERENCES gene(name), synonym, PRIMARY KEY (gene, synonym))
+
+Die Mutationen werden eindeutig durch die COSMIC-ID beschrieben, daher dient dieser als Primärschlüssel. Wie im ER-Modell angedeutet, verweisen die angegebenen Proteine auf die Proteinnamen in der Proteintabelle und die angegebenen Gene in der Mutations- und Synonymtabelle auf den Namen des Gens in der Gentabelle. 
+   Das Problem der Aggregation im ER-Modell wurde dadurch gelöst, dass in der Synonymtabelle statt (offizielles Symbol, Synonym) das Paar (in UniProt angegebener Genname, Synonym) verwendet wird. Dadurch mussten die Mutationen nicht auf ein Synonym verweisen, sondern konnten mithilfe der Synonymtabelle direkt auf den gespeicherten Gennamen verweisen.
+   Die Verwendung der foreign keys bedeutet insbesondere, dass nur die Synonyme und Mutationen gespeichert wurden, die auf Gene verweisen, deren Namen durch die UniProt-Daten gegeben waren.
 
 \section{Implementierung}
 
-Das im Rahmen dieses Projekts erstellte Programm liest Daten aus den Quelldatenbanken ein, speichert sie in einer eigenen SQLite-basierten Datenbank und führt darauf Abfragen aus.
+Das im Rahmen dieses Projekts erstellte Programm liest Daten aus den Quelldatenbanken ein, speichert sie in einer eigenen SQLlite-basierten Datenbank und führt darauf Abfragen aus.
 
-Zuerst müssen die relevanten Daten geladen werden.
+Zum Einlesen und Speichern der Daten wurde als Programmiersprache Java gewählt, da es für die UniProt-Datenbank eine Java-Schnittstelle gibt und die Daten einfach über JDBC in die SQLlite-Datenbank eingespeichert werden können. Zum Ausführen der Abfragen wurde eine einfache GUI erstellt, die eine SQL-Anfrage entgegennimmt und nach Ausführen das Ergebnis bzw. die Fehlermeldung darstellt.
 
 \subsection{Einlesen der Daten}
+
 \subsubsection{UniProt}
-acc-liste, UniProtJAPI
+
+Bevor die UniProt-Einträge abgefragt werden konnten, musste zunächst die uniprot.acc-Datei geparst werden. Dabei musste berücksichtigt werden, dass die Liste Duplikate enthielt. Diese wurden aussortiert, um unnötige Anfragen an die UniProt-Datenbank zu sparen.
+   Darüber hinaus musste die Liste geteilt werden, da der durch die UniProtJAPI vorgestellte UniProtQueryBuilder nur Listen mit maximal 1024 Einträgen unterstützt. Sind die entsprechenden Daten nicht bereits in der Datenbank enthalten, werden die UniProt-Einträge von der Datenbank abgefragt und der empfohlene Name in der Proteinbeschreibung, die UniProtID, die primäre "accession number", die Gennamen und die Isoformen (beschrieben durch "Alternative Products" in den Kommentaren) durch entsprechende Funktionen der UniProtJAPI ausgelesen.
+   Die Einträge, die die accession numbers Q8WUN3, Q6N045, Q5SYY0, A6NKZ1, A6NF79 zugänglich waren, sind gelöscht wurden und konnten daher nicht eingelesen werden.
 
 \subsubsection{GeneNames}
-Auf der \href{http://genenames.org/}{GeneNames-Website} kann der Datenbestand in diversen Formaten abgefragt werden, unser Programm lädt die Daten in einem Tab-separierten Format per HTTP herunter, parst sie zeilenweise und schreibt sie in die \texttt{synonym}-Tabelle. Die Spalte „Approved Symbol“ enthält dabei den offiziellen Namen, in „Previous Symbols“ und „Synonyms“ stehen, durch Komma getrennt, alternative Namen. Für jeden Namen, auch den offiziellen, wird eine Zeile in die Tabelle geschrieben die auf den offiziellen Namen verweist, was einfache Berücksichtigung der Synonyme mittels Join über die \texttt{synonym}-Tabelle ermöglicht.
+
+Auf der \href{http://genenames.org/}{GeneNames-Website} kann der Datenbestand in diversen Formaten abgefragt werden, unser Programm lädt die Daten in einem Tab-separierten Format per HTTP herunter, parst sie zeilenweise und schreibt sie in die \texttt{synonym}-Tabelle. Die Spalte „Approved Symbol“ enthält dabei den offiziellen Namen, in „Previous Symbols“ und „Synonyms“ stehen, durch Komma getrennt, alternative Namen. Für jede Kombination aus zwei dieser Namen wird eine Zeile in die \texttt{Synonym}-Tabelle eingefügt. Durch das foreign key constraint (s. relationales Datenbankschema) bleiben dann nur noch die Einträge bestehen, bei denen der erste Name auf einen in den UniProt-Daten angegebenen Gennamen verweist.
 
 \subsubsection{COSMIC}
+
 Die Listen der kodierenden und nichtkodierenden Genmutationen werden, sofern sie veraltet sind, vom FTP-Server des Sanger-Instituts geladen. Sie liegen mittels GZip gepackt im „Variant Call Format“ (VCF) vor, ein auf dem Tab-separierten Format basierendes Textformat das für die Speicherung von SNPs entworfen wurde. Für jede Mutation ist das Chromosom, die Position, Ursprungs- und Alternativsequenz angegeben. Falls die Mutation in einem Gen liegt, wird in der Info-Spalte auch der Genname genannt, dies ist bei allen kodierenden Mutationen der Fall. Einige nichtkodierende Mutationen liegen ebenfalls innerhalb eines Gens, allerdings z.B. in Introns, wirken sich also nicht auf das Endprodukt aus. SNPs, für die kein Gen angegeben ist, werden ignoriert, der Rest in die \texttt{mutation}-Tabelle geschrieben.
-
-\subsection{Datenbank-Schema}
-
-ER-Diagramm
 
 \subsection{Abfragen}
 
-gui/text
+Mit der einfachen GUI können SQL-Anfragen ausgeführt werden. Beispielsweise könnte einen interessieren, welche Proteine von mehr als einem Gen kodiert werden. Dazu dient folgende Beispielabfrage:
 
-\section{Benutzung}
+SELECT p.name 
+FROM protein p, gene g 
+WHERE g.coded = p.name 
+GROUP BY p.name 
+HAVING count(*) > 1
 
-beispielabfragen
+Ergebnis:
+
+name
+------------------------------------------------------
+Basic helix-loop-helix transcription factor scleraxis
+Doublesex- and mab-3-related transcription factor C1
+Heat shock transcription factor, X-linked
+Heat shock transcription factor, Y-linked
+
 
 \end{document}

@@ -27,7 +27,7 @@ public class MutationTable {
 	public static void setup(final Connection conn) throws SQLException {
 		final Statement s = conn.createStatement();
 		synchronized (conn) {
-			s.executeUpdate("create table if not exists mutation (position NOT NULL, cosmid, reference_nucleotide NOT NULL, alternative_nucleotide, coding, gene REFERENCES gene(name), strand, amino_acid_notation, count)");
+			s.executeUpdate("create table if not exists mutation (position NOT NULL, cosmid PRIMARY KEY, reference_nucleotide NOT NULL, alternative_nucleotide, coding, gene REFERENCES gene(name), strand, amino_acid_notation, count)");
 		}
 	}
 
