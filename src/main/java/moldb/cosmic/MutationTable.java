@@ -115,17 +115,17 @@ public class MutationTable {
 	static void download() throws IOException {
 		logger.info("Checking COSMIC data.");
 		final FTPClient ftp = new FTPClient();
-		ftp.connect("ftp.sanger.ac.uk");
+		ftp.connect("ngs.sanger.ac.uk");
 		ftp.login("anonymous", "-anonymous@example.org");
-		ftp.changeWorkingDirectory("/pub/CGP/cosmic/data_export/");
+		ftp.changeWorkingDirectory("/production/cosmic/");
 		ftp.enterLocalPassiveMode();
 		for (final FTPFile ftpfile : ftp.listFiles()) {
 			final String ftpname = ftpfile.getName();
 			logger.debug("Check file " + ftpname);
 			String outname = null;
-			if (ftpname.startsWith("CosmicCodingMuts"))
+			if (ftpname.startsWith("CosmicCodingMuts_"))
 				outname = coding_name;
-			else if (ftpname.startsWith("CosmicNonCodingVariants"))
+			else if (ftpname.startsWith("CosmicNonCodingVariants_"))
 				outname = noncoding_name;
 			if (outname != null) {
 				final long ftpdate = ftpfile.getTimestamp().getTime().getTime();
@@ -138,7 +138,7 @@ public class MutationTable {
 								out);
 						logger.info("Downloading " + ftpname + " to " + outname);
 						ftp.setFileType(FTP.BINARY_FILE_TYPE);
-						new Thread() {
+						Thread t = new Thread() {
 							@Override
 							public void run() {
 								final double mb = ftpfile.getSize() / 1024.0 / 1024.0;
@@ -154,8 +154,10 @@ public class MutationTable {
 											mb));
 								}
 							};
-						}.start();
+						};
+						t.start();
 						ftp.retrieveFile(ftpname, cos);
+						t.stop();
 						out.close();
 						outfile.setLastModified(ftpdate);
 					} catch (final CopyStreamException e) {
