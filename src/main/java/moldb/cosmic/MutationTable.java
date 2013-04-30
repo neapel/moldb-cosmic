@@ -103,6 +103,7 @@ public class MutationTable {
 				setChromosome.executeUpdate();
 				insertMutation.executeUpdate();
 		}
+		conn.commit();
 		reader.close();
 		logger.debug("Done reading " + lineNumber + " lines.");
 		logger.debug("Inserted " + inserted + " mutations.");
