@@ -44,7 +44,7 @@ public class SynonymsTable {
 		for (String line = reader.readLine(); line != null; line = reader
 				.readLine()) {
 			final String[] fields = line.split("\t");
-
+			if(fields.length > 6) {
 			final ArrayList<String> symbols = new ArrayList<String>();
 			symbols.add(fields[1]);
 			if (fields[4].length() > 0)
