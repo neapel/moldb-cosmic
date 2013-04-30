@@ -1,6 +1,7 @@
 \documentclass{scrartcl}
 \usepackage[ngerman]{babel}
-\usepackage{fontspec,microtype,hyperref}
+\usepackage{fontspec,microtype,hyperref,tikz,booktabs}
+\usetikzlibrary{positioning,shapes.geometric,shapes.multipart}
 \hypersetup{colorlinks=false,pdfborder={0 0 0}}
 
 \title{COSMIC}
@@ -8,10 +9,9 @@
 \author{%
 	\href{mailto:thomas.dencker@stud.uni-goettingen.de}{Thomas Dencker} \and
 	\href{mailto:robert.kratel@stud.uni-goettingen.de}{Robert Kratel} \and
-	\href{pascal.schmitt1@stud.uni-goettingen.de}{Pascal Schmitt}}
-
+	\href{mailto:pascal.schmitt1@stud.uni-goettingen.de}{Pascal Schmitt}}
 \begin{document}
-\maketitle{}
+\maketitle
 \vfill
 \tableofcontents
 \newpage
@@ -22,89 +22,287 @@ Die Aufgabenstellung des Datenbankprojektes war es, eine auf \href{http://sqlite
    Neben diesen allgemeinen Aufgaben sollten kodierende und nichtkodierende Mutationen in Krebserkranken in den Genen der Datenbank identifiziert werden. Diese Informationen sollten der \href{http://cancer.sanger.ac.uk/cancergenome/projects/studies/}{COSMIC}-Datenbank entnommen werden.
    Darüber hinaus sollte das relationale Datenbank-Schema auf Grundlage eines Entity-Relationship-Modells entworfen werden.
 
-\subsection{Verwendete Datenbanken}
-
 Das Projekt kombiniert Informationen aus drei Datenbanken, deren Inhalt im Folgenden kurz beschrieben wird.
 
-\subsubsection{UniProt}
-
+\begin{description}
+\item[UniProt]
 Die UniProt-Datenbank ist eine freizugängliche Datenbank, die Sequenzen und funktionelle Informationen zu Proteinen enthält. Diese werden von der Swiss-Prot- und der TrEMBL-Datenbank bereitgestellt. Die Einträge der Datenbank können u.a. durch die UniProtJAPI abgefragt und gespeichert werden.
-
-\subsubsection{GeneNames}
-
+\item[GeneNames]
 genenames.org ist eine Datenbank, welche vom HGNC(HUGO Gene Nomenclature Committee) akzeptierte Gennomenklatur enthält. Unter anderem sind das anerkannte Symbol, die vorherigen Symbole und Synonyme zu rund 19000 proteinkodierenden Genen downloadbar.
-
-\subsubsection{COSMIC}
-
+\item[COSMIC]
 Die COSMIC-Datenbank wird vom Sanger-Institut bereitgestellt und enthält Informationen zu somatischen kodierenden und nicht-kodierenden Mutationen in Krebserkrankungen.
-
-\section{Datenbank-Schema}
-
-\subsection{Entity-Relationship-Modell}
-
-Ausgangspunkt der Datenbank sind die durch die "UniProt accession numbers" referenzierten Proteine, welche die erste Entität des Modells bilden. Als Attribute wurden der in der Aufgabenstellung geforderte Proteinname, die UniProtID und die accession number gewählt, über die weitere Informationen abgerufen werden könnten. Außerdem gibt es die Sequenz als weiteres Attribut, um diese ggf. mit den Sequenzen der Isoformen vergleichen zu können.
-   Zu den Proteinen sollten die in der UniProt-Datenbank angegebenen Gennamen gespeichert werden. Da es Proteine gibt, die von mehr als einem Gen kodiert werden und Gene gibt, die mehr als ein in der Datenbank aufgeführtes Protein kodieren, besteht eine n:n Beziehung zwischen Genen und Proteinen und Gen ist somit die zweite Entität des Modells.
-   Desweiteren waren die angegebenen Isoformen der Proteine zu speichern. Da hier offensichtlich eine 1:n Beziehung besteht, bilden die Isoformen den dritten Entitätstyp. Als Attribute sind ID und die Sequenz angedacht.
-   Die Synonyme der genenames.org-Datenbank und die Mutationen der COSMIC-Datenbank bilden die letzten beiden Entitäten, die mit den Genen bzw. der Gen/Synonym-Aggregation in Beziehung stehen. Als Attribute der Mutationen wurden alle verfügbaren Informationen der COSMIC-Einträge verwendet, bis auf das Chromosom, welches den entsprechenden Genen zugeordnet wurde, da dies dort als Attribut mehr Relevanz hat.
+\end{description}
 
 \newpage
-*BILD*
-\newpage
+\section{Entity-Relationship-Modell}
 
-\subsection{Relationales Datenbank-Schema}
+\begin{figure}\centering
+	\begin{tikzpicture}[x=5pt,y=20pt,
+		entity/.style={rectangle, draw, inner sep=8pt, fill=black!10},
+		rel/.style={diamond, aspect=2, draw, font=\small, inner sep=2pt},
+		attr/.style={rectangle, rounded corners=6pt, draw, font=\footnotesize, anchor=west},
+		primary/.style={font=\footnotesize\it}
+	]
+		\draw
+			node(gene)[entity]{Gen}
+				(gene.south) |- ++(1,-1) node[attr,primary]{Name}
+				(gene.south) |- ++(1,-2) node[attr]{Sequenz}
+			node(gsyn)[rel,above=of gene]{zu}
+			node(syn)[entity,above=of gsyn]{Synonym}
+				(syn.north) |- ++(1,1) node[attr,primary]{Alternativer Name}
+			node(genem)[rel,left=of gene]{von}
+			node(mut)[entity,left=of genem]{Mutation}
+				(mut.south) |- ++(1,-1) node[attr]{Codierend?}
+				(mut.south) |- ++(1,-2) node[attr,primary]{COSMIC-ID}
+				(mut.south) |- ++(1,-3) node[attr]{Position}
+				(mut.south) |- ++(1,-4) node[attr]{Referenz}
+				(mut.south) |- ++(1,-5) node[attr]{Alternative}
+			node(protg)[rel,right=of gene]{zu}
+			node(prot)[entity,right=of protg]{Protein}
+				(prot.south) |- ++(1,-1) node[attr,primary]{Name}
+				(prot.south) |- ++(1,-2) node[attr]{Uniprot-ID}
+				(prot.south) |- ++(1,-3) node[attr]{Accession-ID}
+				(prot.south) |- ++(1,-4) node[attr]{Sequenz}
+			node(isop)[rel,above=of prot]{von}
+			node(iso)[entity,above=of isop]{Isoform}
+				(iso.north) |- ++(1,2) node[attr,primary]{Name}
+				(iso.north) |- ++(1,1) node[attr]{Sequenz}
+		;
+		\draw[every node/.style={fill=white}]
+			(gene)--node{$n$}(gsyn)--node{$1$}(syn)
+			(gene)--node{$n$}(genem)--node{$1$}(mut)
+			(gene)--node{$1$}(protg)--node{$n$}(prot)
+			(prot)--node{$n$}(isop)--node{$1$}(iso);
+	\end{tikzpicture}
+	\caption{Entity-Relationship-Modell}\label{ermodel}
+\end{figure}
 
-Das Entity-Relationship-Modell wurde wie folgt in ein relationales Datenbankschema überführt.
+Ausgangspunkt der Datenbank sind die durch die „UniProt accession numbers“ referenzierten Proteine, welche die erste Entität des Modells bilden. Als Attribute wurden der in der Aufgabenstellung geforderte Proteinname, die UniProtID und die accession number gewählt, über die weitere Informationen abgerufen werden könnten. Außerdem gibt es die Sequenz als weiteres Attribut, um diese ggf. mit den Sequenzen der Isoformen vergleichen zu können.
 
-protein (name PRIMARY KEY, uniprotid NOT NULL, accession NOT NULL, sequence NOT NULL)
-gene (name PRIMARY KEY, coded protein REFERENCES protein(name), chromosome)
-isoform (id PRIMARY KEY, protein REFERENCES protein(name), sequence)
-mutation (position NOT NULL, cosmid PRIMARY KEY, reference_nucleotide NOT NULL, alternative_nucleotide, coding, gene REFERENCES gene(name), strand, amino_acid_notation, count)
-synonym (gene REFERENCES gene(name), synonym, PRIMARY KEY (gene, synonym))
+Zu den Proteinen sollten die in der UniProt-Datenbank angegebenen Gennamen gespeichert werden. Da es Proteine gibt, die von mehr als einem Gen kodiert werden und Gene gibt, die mehr als ein in der Datenbank aufgeführtes Protein kodieren, besteht eine $n:n$ Beziehung zwischen Genen und Proteinen und Gen ist somit die zweite Entität des Modells.
 
-Die Mutationen werden eindeutig durch die COSMIC-ID beschrieben, daher dient dieser als Primärschlüssel. Wie im ER-Modell angedeutet, verweisen die angegebenen Proteine auf die Proteinnamen in der Proteintabelle und die angegebenen Gene in der Mutations- und Synonymtabelle auf den Namen des Gens in der Gentabelle. 
-   Das Problem der Aggregation im ER-Modell wurde dadurch gelöst, dass in der Synonymtabelle statt (offizielles Symbol, Synonym) das Paar (in UniProt angegebener Genname, Synonym) verwendet wird. Dadurch mussten die Mutationen nicht auf ein Synonym verweisen, sondern konnten mithilfe der Synonymtabelle direkt auf den gespeicherten Gennamen verweisen.
-   Die Verwendung der foreign keys bedeutet insbesondere, dass nur die Synonyme und Mutationen gespeichert wurden, die auf Gene verweisen, deren Namen durch die UniProt-Daten gegeben waren.
+Desweiteren waren die angegebenen Isoformen der Proteine zu speichern. Da hier offensichtlich eine $1:n$ Beziehung besteht, bilden die Isoformen den dritten Entitätstyp. Als Attribute sind ID und die Sequenz angedacht.
+
+Die Synonyme der genenames.org-Datenbank und die Mutationen der COSMIC-Datenbank bilden die letzten beiden Entitäten, die mit den Genen bzw. der Gen/Synonym-Aggregation in Beziehung stehen. Als Attribute der Mutationen wurden alle verfügbaren Informationen der COSMIC-Einträge verwendet, bis auf das Chromosom, welches den entsprechenden Genen zugeordnet wurde, da dies dort als Attribut mehr Relevanz hat.
 
 \section{Implementierung}
 
-Das im Rahmen dieses Projekts erstellte Programm liest Daten aus den Quelldatenbanken ein, speichert sie in einer eigenen SQLlite-basierten Datenbank und führt darauf Abfragen aus.
+Das im Rahmen dieses Projekts erstellte Programm liest Daten aus den Quelldatenbanken ein, speichert sie in einer eigenen SQLite-basierten Datenbank und führt darauf Abfragen aus.
 
 Zum Einlesen und Speichern der Daten wurde als Programmiersprache Java gewählt, da es für die UniProt-Datenbank eine Java-Schnittstelle gibt und die Daten einfach über JDBC in die SQLlite-Datenbank eingespeichert werden können. Zum Ausführen der Abfragen wurde eine einfache GUI erstellt, die eine SQL-Anfrage entgegennimmt und nach Ausführen das Ergebnis bzw. die Fehlermeldung darstellt.
 
+\subsection{Relationales Datenbank-Schema}
+
+\begin{figure}\centering
+	\begin{tikzpicture}[
+		table/.style={
+			rectangle split, rectangle split parts=#1,
+			rectangle split draw splits=false,
+			rectangle split part fill={black!10,white},
+			rectangle split part align={left},
+			draw, font=\tt,
+		},
+		shorten >=1pt,
+	]
+	\def\p#1{\nodepart{#1}\vphantom{qd}}
+		\node(mut)[table=7]{\vphantom{q}mutation
+			\p{two}\itshape cosmid
+			\p{three}gene
+			\p{four}coding
+			\p{five}position
+			\p{six}reference
+			\p{seven}alternative};
+		\node(gene)[table=4,right=of mut.north east,anchor=north west]{\vphantom{d}gene
+			\p{two}\itshape name
+			\p{three}protein
+			\p{four}chromosome};
+		\node(prot)[table=5,below right=of gene.north east,anchor=north west]{protein
+			\p{two}\itshape name
+			\p{three}uniprotid
+			\p{four}accession
+			\p{five}sequence};
+		\node(iso)[table=4,right=of prot.north east,anchor=north west]{\vphantom{q}isoform
+			\p{two}\itshape id
+			\p{three}protein
+			\p{four}sequence};
+		\node(syn)[table=3,above=of prot.north west,anchor=south west]{\vphantom{d}synonym
+			\p{two}\itshape gene
+			\p{three}\itshape synonym};
+		\draw[->,out=180,in=0] (iso.three west) to (prot.two east);
+		\draw[->,out=0,in=180] (gene.three east) to (prot.two west);
+		\draw[->,out=0,in=180] (mut.three east) to (gene.two west);
+		\draw[->,out=180,in=0] (syn.two west) to (gene.two east);
+	\end{tikzpicture}
+	\caption{Datenbanktabellen und \texttt{references}-Attribute}\label{tables}
+\end{figure}
+
+Das Entity-Relationship-Modell aus Abb.~\ref{ermodel} wurde wie folgt in ein relationales Datenbankschema (siehe Abb.~\ref{tables}) überführt. Im Gegensatz zu anderen Datenbanken unterstützt SQLite keine Datentyp-Annotationen für Spalten und speichert alles als Zeichenketten.
+\begin{verbatim}
+CREATE TABLE gene (name PRIMARY KEY, protein REFERENCES protein(name),
+                   chromosome);
+CREATE TABLE synonym (gene REFERENCES gene(name), synonym,
+                      PRIMARY KEY (gene, synonym));
+CREATE TABLE mutation (cosmid PRIMARY KEY, gene REFERENCES gene(name),
+                       coding, position, reference, alternative);
+CREATE TABLE protein (name PRIMARY KEY,
+                      uniprotid, accession, sequence);
+CREATE TABLE isoform (id PRIMARY KEY, protein REFERENCES protein(name),
+                      sequence);
+\end{verbatim}
+Die Mutationen werden eindeutig durch die COSMIC-ID beschrieben, daher dient dieser als Primärschlüssel. Wie im ER-Modell angedeutet, verweisen die angegebenen Proteine auf die Proteinnamen in der Proteintabelle und die angegebenen Gene in der Mutations- und Synonymtabelle auf den Namen des Gens in der Gentabelle. 
+
+Das Problem der Aggregation im ER-Modell wurde dadurch gelöst, dass in der Synonymtabelle statt (offizielles Symbol, Synonym) das Paar (in UniProt angegebener Genname, Synonym) verwendet wird. Dadurch mussten die Mutationen nicht auf ein Synonym verweisen, sondern konnten mithilfe der Synonymtabelle direkt auf den gespeicherten Gennamen verweisen.
+
+Die Verwendung der Foreign Keys bedeutet insbesondere, dass nur die Synonyme und Mutationen gespeichert wurden, die auf Gene verweisen, deren Namen durch die UniProt-Daten gegeben waren.
+
 \subsection{Einlesen der Daten}
 
-\subsubsection{UniProt}
+\begin{description}
+\item[UniProt]
+Bevor die UniProt-Einträge abgefragt werden konnten, musste zunächst die \texttt{uniprot.acc}-Datei geparst werden. Dabei musste berücksichtigt werden, dass die Liste Duplikate enthielt. Diese wurden aussortiert, um unnötige Anfragen an die UniProt-Datenbank zu sparen.
 
-Bevor die UniProt-Einträge abgefragt werden konnten, musste zunächst die uniprot.acc-Datei geparst werden. Dabei musste berücksichtigt werden, dass die Liste Duplikate enthielt. Diese wurden aussortiert, um unnötige Anfragen an die UniProt-Datenbank zu sparen.
-   Darüber hinaus musste die Liste geteilt werden, da der durch die UniProtJAPI vorgestellte UniProtQueryBuilder nur Listen mit maximal 1024 Einträgen unterstützt. Sind die entsprechenden Daten nicht bereits in der Datenbank enthalten, werden die UniProt-Einträge von der Datenbank abgefragt und der empfohlene Name in der Proteinbeschreibung, die UniProtID, die primäre "accession number", die Gennamen und die Isoformen (beschrieben durch "Alternative Products" in den Kommentaren) durch entsprechende Funktionen der UniProtJAPI ausgelesen.
-   Die Einträge, die die accession numbers Q8WUN3, Q6N045, Q5SYY0, A6NKZ1, A6NF79 zugänglich waren, sind gelöscht wurden und konnten daher nicht eingelesen werden.
+Darüber hinaus musste die Liste geteilt werden, da der durch die UniProtJAPI vorgestellte \texttt{UniProtQueryBuilder} nur Listen mit maximal 1024 Einträgen unterstützt. Sind die entsprechenden Daten nicht bereits in der Datenbank enthalten, werden die UniProt-Einträge von der Datenbank abgefragt und der empfohlene Name in der Proteinbeschreibung, die UniProtID, die primäre „accession number“, die Gennamen und die Isoformen (beschrieben durch „Alternative Products“ in den Kommentaren) durch entsprechende Funktionen der UniProtJAPI ausgelesen.
 
-\subsubsection{GeneNames}
+Die Einträge, die die accession numbers \texttt{Q8WUN3}, \texttt{Q6N045}, \texttt{Q5SYY0}, \texttt{A6NKZ1}, \texttt{A6NF79} zugänglich waren, sind gelöscht wurden und konnten daher nicht eingelesen werden.
 
+\item[GeneNames]
 Auf der \href{http://genenames.org/}{GeneNames-Website} kann der Datenbestand in diversen Formaten abgefragt werden, unser Programm lädt die Daten in einem Tab-separierten Format per HTTP herunter, parst sie zeilenweise und schreibt sie in die \texttt{synonym}-Tabelle. Die Spalte „Approved Symbol“ enthält dabei den offiziellen Namen, in „Previous Symbols“ und „Synonyms“ stehen, durch Komma getrennt, alternative Namen. Für jede Kombination aus zwei dieser Namen wird eine Zeile in die \texttt{Synonym}-Tabelle eingefügt. Durch das foreign key constraint (s. relationales Datenbankschema) bleiben dann nur noch die Einträge bestehen, bei denen der erste Name auf einen in den UniProt-Daten angegebenen Gennamen verweist.
 
-\subsubsection{COSMIC}
-
+\item[COSMIC]
 Die Listen der kodierenden und nichtkodierenden Genmutationen werden, sofern sie veraltet sind, vom FTP-Server des Sanger-Instituts geladen. Sie liegen mittels GZip gepackt im „Variant Call Format“ (VCF) vor, ein auf dem Tab-separierten Format basierendes Textformat das für die Speicherung von SNPs entworfen wurde. Für jede Mutation ist das Chromosom, die Position, Ursprungs- und Alternativsequenz angegeben. Falls die Mutation in einem Gen liegt, wird in der Info-Spalte auch der Genname genannt, dies ist bei allen kodierenden Mutationen der Fall. Einige nichtkodierende Mutationen liegen ebenfalls innerhalb eines Gens, allerdings z.B. in Introns, wirken sich also nicht auf das Endprodukt aus. SNPs, für die kein Gen angegeben ist, werden ignoriert, der Rest in die \texttt{mutation}-Tabelle geschrieben.
+\end{description}
 
-\subsection{Abfragen}
+\section{Abfragen}
 
-Mit der einfachen GUI können SQL-Anfragen ausgeführt werden. Beispielsweise könnte einen interessieren, welche Proteine von mehr als einem Gen kodiert werden. Dazu dient folgende Beispielabfrage:
+Mit der einfachen GUI können SQL-Anfragen ausgeführt werden um z.B. folgende Fragen zu beantworten:
 
-SELECT p.name 
+\subsection{Welche Proteine werden von mehr als einem Gen kodiert?}
+
+\noindent\begin{minipage}{.4\hsize}
+\begin{verbatim}
+SELECT p.uniprotid, p.name
 FROM protein p, gene g 
-WHERE g.coded = p.name 
+WHERE g.protein = p.name
 GROUP BY p.name 
 HAVING count(*) > 1
+\end{verbatim}
+\end{minipage}
+\begin{minipage}{.6\hsize}
+\hfill\begin{tabular}{ll}
+\toprule
+Uniprot-ID & Name\\
+\midrule
+\verb|SCX_HUMAN| &Basic helix-loop-helix T.F.\\
+\verb|DMRTC_HUMAN|&Doublesex-\& mab-3-rel. T.F. C1\\
+\verb|HSFX1_HUMAN|&Heat shock T.F., X-linked\\
+\verb|HSFY1_HUMAN|&Heat shock T.F., Y-linked\\
+\bottomrule
+\end{tabular}
+\end{minipage}
 
-Ergebnis:
+\subsection{Welche Mutationen treten für diese auf?}
 
-name
-------------------------------------------------------
-Basic helix-loop-helix transcription factor scleraxis
-Doublesex- and mab-3-related transcription factor C1
-Heat shock transcription factor, X-linked
-Heat shock transcription factor, Y-linked
+\noindent\begin{minipage}{.5\hsize}
+\begin{verbatim}
+SELECT g.name, m.cosmid, m.aa
+FROM protein p, gene g, mutation m
+WHERE p.uniprotid = "DMRTC_HUMAN"
+AND g.protein = p.name
+AND m.gene = g.name
+\end{verbatim}
+\end{minipage}
+\begin{minipage}{.5\hsize}
+\hfill\begin{tabular}{lll}
+\toprule
+Gen&COSMIC-ID&Prot.-Mutation\\
+\midrule
+\texttt{DMRTC1}&\texttt{COSM458031}&\texttt{p.R171G} \\
+\texttt{DMRTC1}&\texttt{COSM195610}&\texttt{p.G159V} \\
+\bottomrule
+\end{tabular}
+\end{minipage}
+
+\subsection{Wie viele Genmutationen wirken auf die Proteine mit den meisten Isoformen?}
+
+\noindent\begin{minipage}{.4\hsize}
+\begin{verbatim}
+SELECT p.uniprotid, count(*),
+ (SELECT count(*)
+  FROM mutation m, gene g
+  WHERE m.gene = g.name
+  AND g.protein = p.name
+  AND m.coding = 1),
+ (SELECT sum(m.count)
+  FROM mutation m, gene g
+  WHERE m.gene = g.name
+  AND g.protein = p.name
+  AND m.coding = 1)
+FROM isoform i, protein p
+WHERE i.protein = p.name
+GROUP BY p.name
+ORDER BY count(*) DESC
+LIMIT 15
+\end{verbatim}
+\end{minipage}
+\begin{minipage}{.6\hsize}
+\hfill\begin{tabular}{lrrr}
+\toprule
+Uniprot-ID & Isoformen & Stellen & Fälle \\
+\midrule
+\verb|NFAC4_HUMAN|&24&38&40\\
+\verb|CREM_HUMAN|&23&15&15\\
+\verb|TCF7_HUMAN|&16&11&12\\
+\verb|IKZF3_HUMAN|&15&49&51\\
+\verb|TF7L2_HUMAN|&12&43&54\\
+\verb|P63_HUMAN|&12&69&74\\
+\verb|CUX1_HUMAN|&11&93&95\\
+\verb|MITF_HUMAN|&11&36&36\\
+\verb|NR1I3_HUMAN|&11&16&16\\
+\verb|RUNX1_HUMAN|&11&210&303\\
+\verb|ITF2_HUMAN|&11&49&49\\
+\verb|GCR_HUMAN|&10&40&41\\
+\verb|P73_HUMAN|&10&21&24\\
+\verb|BMAL1_HUMAN|&9&25&28\\
+\verb|BMAL2_HUMAN|&9&24&26\\
+%\verb|CNOT4_HUMAN|&9&30&30\\
+%\verb|P53_HUMAN|&9&3186&17561\\
+%\verb|FOXP2_HUMAN|&9&62&68\\
+%\verb|MIER1_HUMAN|&9&20&20\\
+%\verb|PB1_HUMAN|&9&247&278\\
+\bottomrule
+\end{tabular}
+\end{minipage}
+
+\subsection{Welche Proteine stammen aus einem best. Abschnitt des Genoms?}
+
+\noindent\begin{minipage}{.65\hsize}
+\begin{verbatim}
+SELECT DISTINCT m.gene, p.accession
+FROM mutation m, gene g, protein p
+WHERE CAST(m.position AS INTEGER) > 1700000
+AND CAST(m.position AS INTEGER) < 2000000
+AND g.name = m.gene
+AND g.protein = p.name
+ORDER BY m.position
+\end{verbatim}
+\end{minipage}
+\begin{minipage}{.35\hsize}
+\hfill\begin{tabular}{ll}
+\toprule
+Gen & Prot.-AccNr. \\
+\midrule
+\texttt{CRAMP1L}&\texttt{Q96RY5}\\
+\texttt{ONECUT3}&\texttt{O60422}\\
+\texttt{MYT1L}&\texttt{Q9UL68}\\
+\texttt{KLF16}&\texttt{Q9BXK1}\\
+\texttt{IRX4}&\texttt{P78413}\\
+\texttt{WHSC1}&\texttt{O96028}\\
+\texttt{HIC1}&\texttt{Q14526}\\
+\bottomrule
+\end{tabular}
+\end{minipage}
+
+
 
 
 \end{document}
