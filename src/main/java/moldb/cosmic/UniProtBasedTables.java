@@ -51,20 +51,16 @@ public class UniProtBasedTables {
 
 	public static void setup(final Connection conn) throws SQLException {
 		final Statement s = conn.createStatement();
-		synchronized (conn) {
 			s.executeUpdate("create table if not exists protein (name PRIMARY KEY, uniprotid NOT NULL, accession NOT NULL, sequence NOT NULL)");
 			s.executeUpdate("create table if not exists gene (name PRIMARY KEY, coded protein REFERENCES protein(name), chromosome)");
 			s.executeUpdate("create table if not exists isoform (id PRIMARY KEY, protein REFERENCES protein(name), sequence)");
-		}
 	}
 
 	public static void teardown(final Connection conn) throws SQLException {
 		final Statement s = conn.createStatement();
-		synchronized (conn) {
 			s.executeUpdate("drop table if exists protein");
 			s.executeUpdate("drop table if exists gene");
 			s.executeUpdate("drop table if exists isoform");
-		}
 	}
 
 	static boolean hasProtein(final Connection conn, final String acc) {
@@ -72,11 +68,9 @@ public class UniProtBasedTables {
 			final PreparedStatement s = conn
 					.prepareStatement("select count(*) != 0 from protein where accession = ?");
 			s.setString(1, acc);
-			synchronized (conn) {
 				final ResultSet rs = s.executeQuery();
 				rs.next();
 				return rs.getBoolean(1);
-			}
 		} catch (final SQLException e) {
 			return false;
 		}
@@ -107,18 +101,14 @@ public class UniProtBasedTables {
 			primAcc.add(pa);
 			protps.setString(3, pa);
 			protps.setString(4, entry.getSequence().getValue());
-			synchronized (conn) {
 				protps.executeUpdate();
-			}
 			if (entry.getGenes().size() > 1)
 				logger.info(pa + " has more than one gene.");
 			for (final Gene g : entry.getGenes()) {
 				geneps.setString(1, g.hasGeneName() ? g.getGeneName()
 						.getValue() : null);
 				geneps.setString(2, recName);
-				synchronized (conn) {
 					geneps.executeUpdate();
-				}
 			}
 			isops.setString(2, recName);
 			for (final Comment com : entry
@@ -129,20 +119,16 @@ public class UniProtBasedTables {
 							entry.getSplicedSequence(iso.getName().getValue()));
 					for (final IsoformId id : iso.getIds()) {
 						isops.setString(1, id.getValue());
-						synchronized (conn) {
 							isops.executeUpdate();
-						}
 					}
 				}
 		}
 		for (final String s : acc)
 			if (!primAcc.contains(s))
 				logger.debug("No entry found for: " + s
-						+ "(most likely deleted)");
+						+ " (most likely deleted)");
 		logger.info("Done.");
-		synchronized (conn) {
 			conn.commit();
-		}
 		logger.info("Commited.");
 	}
 

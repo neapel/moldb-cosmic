@@ -26,16 +26,12 @@ public class MutationTable {
 
 	public static void setup(final Connection conn) throws SQLException {
 		final Statement s = conn.createStatement();
-		synchronized (conn) {
-			s.executeUpdate("create table if not exists mutation (position NOT NULL, cosmid PRIMARY KEY, reference_nucleotide NOT NULL, alternative_nucleotide, coding, gene REFERENCES gene(name), strand, amino_acid_notation, count)");
-		}
+			s.executeUpdate("create table if not exists mutation (position NOT NULL, cosmid PRIMARY KEY, reference NOT NULL, alternative, coding, gene REFERENCES gene(name), strand, aa, count)");
 	}
 
 	public static void teardown(final Connection conn) throws SQLException {
 		final Statement s = conn.createStatement();
-		synchronized (conn) {
 			s.executeUpdate("drop table if exists mutation");
-		}
 	}
 
 	static void read(final Connection conn, final String fileName,
@@ -103,25 +99,13 @@ public class MutationTable {
 			insertMutation.setString(7, strand);
 			insertMutation.setString(8, aa);
 			insertMutation.setString(9, count);
-			synchronized (conn) {
 				inserted++;
 				setChromosome.executeUpdate();
 				insertMutation.executeUpdate();
-			}
 		}
 		reader.close();
 		logger.debug("Done reading " + lineNumber + " lines.");
 		logger.debug("Inserted " + inserted + " mutations.");
-
-		/*
-		 * final PreparedStatement selectGene = conn
-		 * .prepareStatement("select gene from synonym where synonym = ?");
-		 * selectGene.setString(1, gene); final ResultSet rs =
-		 * selectGene.executeQuery(); if (rs.next()) { final String s =
-		 * rs.getString(1); setChromosome.setString(2, s); synchronized (conn) {
-		 * setChromosome.executeUpdate(); } insertMutation.setString(6, s); }
-		 * else { noSynonym++; continue; } }
-		 */
 	}
 
 	static String coding_name = "cosmic_coding.vcf.gz";

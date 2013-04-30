@@ -25,16 +25,12 @@ public class SynonymsTable {
 
 	public static void setup(final Connection conn) throws SQLException {
 		final Statement s = conn.createStatement();
-		synchronized (conn) {
 			s.executeUpdate("create table if not exists synonym (gene REFERENCES gene(name), synonym, PRIMARY KEY (gene, synonym))");
-		}
 	}
 
 	public static void teardown(final Connection conn) throws SQLException {
 		final Statement s = conn.createStatement();
-		synchronized (conn) {
 			s.executeUpdate("drop table if exists synonym");
-		}
 	}
 
 	static void read(final Connection conn, final String fileName)
@@ -61,14 +57,11 @@ public class SynonymsTable {
 				insertSynonym.setString(1, s);
 				for (final String str : symbols) {
 					insertSynonym.setString(2, str);
-					synchronized (conn) {
 						insertSynonym.executeUpdate();
-					}
 				}
 			}
-		}
+		}}
 		reader.close();
-		synchronized (conn) {
 			// insert and ignore funktioniert nicht mit foreign keys ..
 			final Statement s = conn.createStatement();
 			s.executeUpdate("delete from synonym where not exists (select * from gene where synonym.gene = gene.name)");
@@ -76,7 +69,6 @@ public class SynonymsTable {
 			// es gibt gene ohne Synonymeintrag
 			s.executeUpdate("insert or ignore into synonym select name,name from gene where not exists (select * from synonym where synonym.gene = gene.name)");
 			conn.commit();
-		}
 	}
 
 	static String synonyms_file = "synonyms.csv";
