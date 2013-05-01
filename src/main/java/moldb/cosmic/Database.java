@@ -36,15 +36,12 @@ public class Database {
 		UniProtBasedTables.init(conn);
 		SynonymsTable.init(conn);
 		MutationTable.init(conn);
-	}
 
-	protected void reset() throws SQLException {
-		UniProtBasedTables.teardown(conn);
-		SynonymsTable.teardown(conn);
-		MutationTable.teardown(conn);
-		UniProtBasedTables.setup(conn);
-		SynonymsTable.setup(conn);
-		MutationTable.setup(conn);
+		logger.info("Creating views.");
+		final Statement s = conn.createStatement();
+		s.executeUpdate("CREATE VIEW IF NOT EXISTS genename AS SELECT DISTINCT s1.name AS a, s2.name AS b, s1.official FROM synonym s1, synonym s2 WHERE s1.official = s2.official");
+		s.executeUpdate("CREATE TEMP TABLE IF NOT EXISTS proteinmut AS SELECT m.id AS mid, m.*, p.id AS pid, p.*, n.official AS gene FROM mutation m, genename n, product g, protein p WHERE m.gene = n.a AND n.b = g.gene AND g.protein = p.id");
+		conn.commit();
+		logger.info("Done.");
 	}
-
 }

@@ -26,12 +26,7 @@ public class MutationTable {
 
 	public static void setup(final Connection conn) throws SQLException {
 		final Statement s = conn.createStatement();
-			s.executeUpdate("create table if not exists mutation (position NOT NULL, cosmid PRIMARY KEY, reference NOT NULL, alternative, coding, gene REFERENCES gene(name), strand, aa, count)");
-	}
-
-	public static void teardown(final Connection conn) throws SQLException {
-		final Statement s = conn.createStatement();
-			s.executeUpdate("drop table if exists mutation");
+			s.executeUpdate("CREATE TABLE IF NOT EXISTS mutation (id PRIMARY KEY, gene, coding, position, reference, alternative, strand, aa, count)");
 	}
 
 	static void read(final Connection conn, final String fileName,
@@ -40,24 +35,12 @@ public class MutationTable {
 				+ isCoding);
 		final BufferedReader reader = new BufferedReader(new InputStreamReader(
 				new GZIPInputStream(new FileInputStream(fileName))));
-		final Statement s = conn.createStatement();
-		final ResultSet rs = s.executeQuery("select * from synonym");
-		// wenn die Datenbank das nur mit angezogener Handbremse schafft, muss
-		// man das halt selber machen
-		final Hashtable<String, String> syn = new Hashtable<String, String>(
-				100000);
-		while (rs.next())
-			syn.put(rs.getString(2), rs.getString(1));
 		final PreparedStatement insertMutation = conn
-				.prepareStatement("insert or replace into mutation values(?,?,?,?,?,?,?,?,?)");
-		final PreparedStatement setChromosome = conn
-				.prepareStatement("update gene set chromosome = ? where name = ?");
+				.prepareStatement("INSERT OR REPLACE INTO MUTATION VALUES(?,?,?,?,?,?,?,?,?)");
 		int lineNumber = 0, inserted = 0;
 		for (String line = reader.readLine(); line != null; line = reader
 				.readLine()) {
 			lineNumber++;
-			// if (lineNumber % 10000 == 0)
-			// logger.debug("Line #" + lineNumber + ": " + line);
 			if (line.startsWith("#"))
 				continue;
 			final String[] parts = line.split("\t");
@@ -66,14 +49,7 @@ public class MutationTable {
 					parts[i] = null;
 			if (parts[7] == null)
 				continue;
-			insertMutation.clearParameters();
-			setChromosome.clearParameters();
-			setChromosome.setString(1, parts[0]); // CHROM
-			insertMutation.setString(1, parts[1]); // POS
-			insertMutation.setString(2, parts[2]); // ID
-			insertMutation.setString(3, parts[3]); // REF
-			insertMutation.setString(4, parts[4]); // ALT
-			insertMutation.setBoolean(5, isCoding);
+			final String pos = parts[1], id = parts[2], ref = parts[3], alt = parts[4];
 			String gene = null, strand = null, count = null, aa = null;
 			for (final String field : parts[7].split(";")) {
 				final String[] kv = field.split("=");
@@ -88,20 +64,17 @@ public class MutationTable {
 				else if (kv[0].equalsIgnoreCase("AA"))
 					aa = kv[1];
 			}
-
-			gene = syn.get(gene);
-
-			if (gene == null)
-				continue;
-
-			setChromosome.setString(2, gene);
-			insertMutation.setString(6, gene);
+			insertMutation.setString(1, id);
+			insertMutation.setString(2, gene);
+			insertMutation.setBoolean(3, isCoding);
+			insertMutation.setString(4, pos);
+			insertMutation.setString(5, ref);
+			insertMutation.setString(6, alt);
 			insertMutation.setString(7, strand);
 			insertMutation.setString(8, aa);
 			insertMutation.setString(9, count);
-				inserted++;
-				setChromosome.executeUpdate();
-				insertMutation.executeUpdate();
+			inserted++;
+			insertMutation.executeUpdate();
 		}
 		conn.commit();
 		reader.close();

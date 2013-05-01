@@ -51,84 +51,75 @@ public class UniProtBasedTables {
 
 	public static void setup(final Connection conn) throws SQLException {
 		final Statement s = conn.createStatement();
-			s.executeUpdate("create table if not exists protein (name PRIMARY KEY, uniprotid NOT NULL, accession NOT NULL, sequence NOT NULL)");
-			s.executeUpdate("create table if not exists gene (name PRIMARY KEY, protein REFERENCES protein(name), chromosome)");
-			s.executeUpdate("create table if not exists isoform (id PRIMARY KEY, protein REFERENCES protein(name), sequence)");
-	}
-
-	public static void teardown(final Connection conn) throws SQLException {
-		final Statement s = conn.createStatement();
-			s.executeUpdate("drop table if exists protein");
-			s.executeUpdate("drop table if exists gene");
-			s.executeUpdate("drop table if exists isoform");
+		s.executeUpdate("CREATE TABLE IF NOT EXISTS protein (id PRIMARY KEY, name, accession, sequence)");
+		s.executeUpdate("CREATE TABLE IF NOT EXISTS product (gene, protein REFERENCES protein(id), PRIMARY KEY(gene, protein))");
+		s.executeUpdate("CREATE TABLE IF NOT EXISTS isoform (id PRIMARY KEY, protein REFERENCES protein(id), sequence)");
 	}
 
 	static boolean hasProtein(final Connection conn, final String acc) {
 		try {
 			final PreparedStatement s = conn
-					.prepareStatement("select count(*) != 0 from protein where accession = ?");
+					.prepareStatement("SELECT count(*) != 0 FROM protein WHERE accession = ?");
 			s.setString(1, acc);
-				final ResultSet rs = s.executeQuery();
-				rs.next();
-				return rs.getBoolean(1);
+			final ResultSet rs = s.executeQuery();
+			rs.next();
+			return rs.getBoolean(1);
 		} catch (final SQLException e) {
 			return false;
 		}
 	}
 
-	static void read(final Connection conn, final List<String> acc)
+	static void read(final Connection conn, final List<String> accs)
 			throws SQLException {
-		logger.info("Retrieving " + acc.size() + " ACCs from Uniprot.");
+		logger.info("Retrieving " + accs.size() + " ACCs from Uniprot.");
 		final UniProtQueryService uniProtQueryService = UniProtJAPI.factory
 				.getUniProtQueryService();
-		final Query query = UniProtQueryBuilder.buildIDListQuery(acc);
+		final Query query = UniProtQueryBuilder.buildIDListQuery(accs);
 		final EntryIterator<UniProtEntry> entries = uniProtQueryService
 				.getEntryIterator(query);
 		final PreparedStatement protps = conn
-				.prepareStatement("insert or replace into protein values (?,?,?,?)");
+				.prepareStatement("INSERT OR REPLACE INTO protein VALUES (?,?,?,?)");
 		final PreparedStatement geneps = conn
-				.prepareStatement("insert or replace into gene values (?,?, null)");
+				.prepareStatement("INSERT OR IGNORE INTO product VALUES (?,?)");
 		final PreparedStatement isops = conn
-				.prepareStatement("insert or replace into isoform values (?,?,?)");
+				.prepareStatement("INSERT OR REPLACE INTO isoform VALUES (?,?,?)");
 		final List<String> primAcc = new ArrayList<String>();
 		for (final UniProtEntry entry : entries) {
 			final String recName = entry.getProteinDescription()
 					.getRecommendedName().getFieldsByType(FieldType.FULL)
 					.get(0).getValue();
-			protps.setString(1, recName);
-			protps.setString(2, entry.getUniProtId().getValue());
-			final String pa = entry.getPrimaryUniProtAccession().getValue();
-			primAcc.add(pa);
-			protps.setString(3, pa);
+			final String acc = entry.getPrimaryUniProtAccession().getValue();
+			final String id = entry.getUniProtId().getValue();
+			primAcc.add(acc);
+			protps.setString(1, id);
+			protps.setString(2, recName);
+			protps.setString(3, acc);
 			protps.setString(4, entry.getSequence().getValue());
-				protps.executeUpdate();
-			if (entry.getGenes().size() > 1)
-				logger.info(pa + " has more than one gene.");
+			protps.executeUpdate();
 			for (final Gene g : entry.getGenes()) {
-				geneps.setString(1, g.hasGeneName() ? g.getGeneName()
-						.getValue() : null);
-				geneps.setString(2, recName);
-					geneps.executeUpdate();
+				geneps.setString(1, g.getGeneName().getValue());
+				geneps.setString(2, id);
+				geneps.executeUpdate();
 			}
-			isops.setString(2, recName);
+			isops.setString(2, id);
 			for (final Comment com : entry
 					.getComments(CommentType.ALTERNATIVE_PRODUCTS))
 				for (final AlternativeProductsIsoform iso : ((AlternativeProductsComment) com)
 						.getIsoforms()) {
 					isops.setString(3,
 							entry.getSplicedSequence(iso.getName().getValue()));
-					for (final IsoformId id : iso.getIds()) {
-						isops.setString(1, id.getValue());
-							isops.executeUpdate();
+					for (final IsoformId iid : iso.getIds()) {
+						isops.setString(1, iid.getValue());
+						isops.executeUpdate();
 					}
 				}
 		}
-		for (final String s : acc)
+		for (final String s : accs)
 			if (!primAcc.contains(s))
 				logger.debug("No entry found for: " + s
 						+ " (most likely deleted)");
 		logger.info("Done.");
-			conn.commit();
+		conn.commit();
 		logger.info("Commited.");
 	}
 
